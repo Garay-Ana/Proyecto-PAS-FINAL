@@ -198,14 +198,13 @@ app.delete('/api/usuarios/:uid', async (req, res) => {
   }
 });
 
-// Ruta para accesos
 app.get('/api/accesos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT r.id, r.uid, e.nombre, e.identificacion, r.timestamp
-      FROM accesos r
-      LEFT JOIN empleados_remotos e ON r.uid = e.uid
-      ORDER BY r.timestamp DESC
+      SELECT r.id, r.usuario_id as uid, e.nombre, e.identificacion, r.fecha_hora as timestamp
+      FROM entradas_remotos r
+      LEFT JOIN empleados_remotos e ON r.usuario_id = e.id
+      ORDER BY r.fecha_hora DESC
       LIMIT 100
     `);
     res.json(rows);
