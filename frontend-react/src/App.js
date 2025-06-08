@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import Dashboard from './components/Dashboard';
 import RemotoPage from './components/RemotoPage';
+import Indexx from './components/Indexx';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/remoto" element={<RemotoPage />} />
+      <Route path="/indexx" element={<Indexx />} />
     </Routes>
   );
 }

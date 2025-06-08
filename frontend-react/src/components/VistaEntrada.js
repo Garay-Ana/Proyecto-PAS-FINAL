@@ -5,7 +5,7 @@ function VistaEntrada({ usuario, onLogout }) {
 
   const registrarEntrada = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/registro-entrada', {
+      const response = await fetch('https://proyecto-pas-final.onrender.com/api/registro-entrada', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

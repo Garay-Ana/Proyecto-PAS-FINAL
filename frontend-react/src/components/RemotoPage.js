@@ -27,7 +27,7 @@ function RemotoPage() {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3000/api/empleados-remotos', {
+      const response = await fetch('https://proyecto-pas-final.onrender.com/api/empleados-remotos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

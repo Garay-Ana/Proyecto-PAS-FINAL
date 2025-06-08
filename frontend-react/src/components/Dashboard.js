@@ -5,7 +5,7 @@ import Controls from './Controls';
 import DataSection from './DataSection';
 
 const API_URL = 'https://pruepas.onrender.com/api/historial';
-const API_REMOTO_URL = 'http://localhost:3000/api/historial-entradas';
+const API_REMOTO_URL = 'https://proyecto-pas-final.onrender.com/api/historial-entradas';
 
 function Dashboard() {
   const [data, setData] = useState([]);

@@ -130,6 +130,91 @@ app.get('/api/historial-entradas', async (req, res) => {
   }
 });
 
+// Rutas para usuarios
+app.get('/api/usuarios', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT uid, identificacion, nombre, correo, telefono FROM empleados_remotos');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener usuarios:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/usuarios', async (req, res) => {
+  const { uid, identificacion, nombre, correo, telefono } = req.body;
+  if (!uid || !identificacion || !nombre) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  try {
+    // Verificar si el UID ya existe
+    const [existing] = await pool.query('SELECT uid FROM empleados_remotos WHERE uid = ?', [uid]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'El UID ya está registrado' });
+    }
+    await pool.query(
+      'INSERT INTO empleados_remotos (uid, identificacion, nombre, correo, telefono) VALUES (?, ?, ?, ?, ?)',
+      [uid, identificacion, nombre, correo || null, telefono || null]
+    );
+    res.status(201).json({ message: 'Usuario registrado correctamente' });
+  } catch (error) {
+    console.error('Error al registrar usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/usuarios/:uid', async (req, res) => {
+  const { uid } = req.params;
+  const { identificacion, nombre, correo, telefono } = req.body;
+  if (!identificacion || !nombre) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  try {
+    const [result] = await pool.query(
+      'UPDATE empleados_remotos SET identificacion = ?, nombre = ?, correo = ?, telefono = ? WHERE uid = ?',
+      [identificacion, nombre, correo || null, telefono || null, uid]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Usuario actualizado correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/usuarios/:uid', async (req, res) => {
+  const { uid } = req.params;
+  try {
+    const [result] = await pool.query('DELETE FROM empleados_remotos WHERE uid = ?', [uid]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json({ message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para accesos
+app.get('/api/accesos', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT r.id, r.uid, e.nombre, e.identificacion, r.timestamp
+      FROM accesos r
+      LEFT JOIN empleados_remotos e ON r.uid = e.uid
+      ORDER BY r.timestamp DESC
+      LIMIT 100
+    `);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener registros de acceso:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });

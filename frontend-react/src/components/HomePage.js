@@ -14,7 +14,7 @@ function HomePage() {
               Remoto
             </button>
           </Link>
-          <Link to="/fisico">
+          <Link to="/indexx">
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition">
               Físico
             </button>
