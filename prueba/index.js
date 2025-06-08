@@ -116,20 +116,23 @@ app.get('/api/historial', (req, res) => {
 
 app.get('/api/historial-entradas', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        COALESCE(e.nombre, u.nombre_completo) AS nombre,
-        COALESCE(e.apellido, '') AS apellido,
-        COALESCE(u.identificacion, '') AS identificacion,
-        r.uid,
-        r.fecha_hora
+    const [empleados] = await pool.query(`
+      SELECT e.nombre, e.apellido, r.uid, r.fecha_hora
       FROM entradas_remotos r
-      LEFT JOIN empleados_remotos e ON r.usuario_id = e.id
-      LEFT JOIN usuarios u ON r.usuario_id = u.uid
+      JOIN empleados_remotos e ON r.usuario_id = e.id
       ORDER BY r.fecha_hora DESC
       LIMIT 100
     `);
-    res.json(rows);
+    const [usuarios] = await pool.query(`
+      SELECT u.nombre_completo AS nombre, '' AS apellido, u.uid, r.fecha_hora
+      FROM entradas_remotos r
+      JOIN usuarios u ON r.usuario_id = u.uid
+      ORDER BY r.fecha_hora DESC
+      LIMIT 100
+    `);
+    const combined = [...empleados, ...usuarios];
+    combined.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
+    res.json(combined.slice(0, 100));
   } catch (error) {
     console.error('Error al obtener historial de entradas:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
