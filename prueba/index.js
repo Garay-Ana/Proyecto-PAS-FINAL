@@ -210,7 +210,7 @@ app.get('/api/accesos', async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener registros de acceso:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor', detalle: error });
   }
 });
 
