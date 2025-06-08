@@ -19,6 +19,7 @@ const Indexx = () => {
     nombre_completo: '',
     correo: '',
     telefono: '',
+    rol: 'usuario',
   });
   const [userFormMessage, setUserFormMessage] = useState('');
   const [userFormMessageType, setUserFormMessageType] = useState(''); // 'error' or 'success'
@@ -26,20 +27,30 @@ const Indexx = () => {
   const [editUserForm, setEditUserForm] = useState({
     uid: '',
     identificacion: '',
-    nombre: '',
+    nombre_completo: '',
     correo: '',
     telefono: '',
+    rol: 'usuario',
   });
   const [loading, setLoading] = useState({
     historial: false,
     users: false,
     accesos: false,
+    asignacion: false,
   });
   const [errorMessages, setErrorMessages] = useState({
     historial: '',
     users: '',
     accesos: '',
+    asignacion: '',
   });
+  const [assignForm, setAssignForm] = useState({
+    gerenteUid: '',
+    usuarioUid: '',
+    tarjetaId: '',
+  });
+  const [assignMessage, setAssignMessage] = useState('');
+  const [assignMessageType, setAssignMessageType] = useState('');
 
   // Formateo de fecha y tiempo transcurrido
   const formatDate = (dateString) => {
@@ -152,6 +163,8 @@ const Indexx = () => {
       loadUsers();
     } else if (tab === 'registros') {
       loadAccessRecords();
+    } else if (tab === 'asignacion') {
+      // No action needed for now
     }
   };
 
@@ -163,8 +176,8 @@ const Indexx = () => {
 
   const handleUserFormSubmit = async (e) => {
     e.preventDefault();
-    const { uid, identificacion, nombre_completo, correo, telefono } = userForm;
-    if (!uid || !identificacion || !nombre_completo) {
+    const { uid, identificacion, nombre_completo, correo, telefono, rol } = userForm;
+    if (!uid || !identificacion || !nombre_completo || !rol) {
       setUserFormMessage('Por favor complete los campos obligatorios (*)');
       setUserFormMessageType('error');
       return;
@@ -173,7 +186,7 @@ const Indexx = () => {
       const res = await fetch(USERS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, identificacion, nombre_completo, correo, telefono }),
+        body: JSON.stringify({ uid, identificacion, nombre_completo, correo, telefono, rol }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -183,7 +196,7 @@ const Indexx = () => {
       setUsersData((prev) => [...prev, newUser]);
       setUserFormMessage('Usuario registrado correctamente');
       setUserFormMessageType('success');
-      setUserForm({ uid: '', identificacion: '', nombre_completo: '', correo: '', telefono: '' });
+      setUserForm({ uid: '', identificacion: '', nombre_completo: '', correo: '', telefono: '', rol: 'usuario' });
     } catch (error) {
       setUserFormMessage(`Error al guardar usuario: ${error.message}`);
       setUserFormMessageType('error');
@@ -215,8 +228,8 @@ const Indexx = () => {
 
   const handleEditUserFormSubmit = async (e) => {
     e.preventDefault();
-    const { uid, identificacion, nombre, correo, telefono } = editUserForm;
-    if (!identificacion || !nombre) {
+    const { uid, identificacion, nombre_completo, correo, telefono, rol } = editUserForm;
+    if (!identificacion || !nombre_completo || !rol) {
       // Show error message (could add state for edit form messages)
       return;
     }
@@ -224,7 +237,7 @@ const Indexx = () => {
       const res = await fetch(`${USERS_API_URL}/${uid}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificacion, nombre, correo, telefono }),
+        body: JSON.stringify({ identificacion, nombre_completo, correo, telefono, rol }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -232,7 +245,7 @@ const Indexx = () => {
       }
       // Actualizar usuarios localmente
       setUsersData((prev) =>
-        prev.map((user) => (user.uid === uid ? { ...user, identificacion, nombre, correo, telefono } : user))
+        prev.map((user) => (user.uid === uid ? { ...user, identificacion, nombre_completo, correo, telefono, rol } : user))
       );
       closeEditModal();
     } catch (error) {
@@ -259,6 +272,42 @@ const Indexx = () => {
   const captureLastUID = () => {
     if (lastScannedUID) {
       setUserForm((prev) => ({ ...prev, uid: lastScannedUID }));
+    }
+  };
+
+  const handleAssignFormChange = (e) => {
+    const { name, value } = e.target;
+    setAssignForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAssignSubmit = async (e) => {
+    e.preventDefault();
+    const { gerenteUid, usuarioUid, tarjetaId } = assignForm;
+    if (!gerenteUid || !usuarioUid || !tarjetaId) {
+      setAssignMessage('Por favor complete todos los campos');
+      setAssignMessageType('error');
+      return;
+    }
+    setLoading((prev) => ({ ...prev, asignacion: true }));
+    setAssignMessage('');
+    try {
+      const res = await fetch('https://proyecto-pas-final.onrender.com/api/asignar-tarjeta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gerenteUid, usuarioUid, tarjetaId }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al asignar tarjeta');
+      }
+      setAssignMessage('Tarjeta asignada correctamente');
+      setAssignMessageType('success');
+      setAssignForm({ gerenteUid: '', usuarioUid: '', tarjetaId: '' });
+    } catch (error) {
+      setAssignMessage(`Error al asignar tarjeta: ${error.message}`);
+      setAssignMessageType('error');
+    } finally {
+      setLoading((prev) => ({ ...prev, asignacion: false }));
     }
   };
 
@@ -398,7 +447,7 @@ const Indexx = () => {
                           .map((entry, index) => {
                             const user = usersData.find((u) => u.uid === entry.uid);
                             const userName = user
-                              ? `${user.nombre} (${user.identificacion})`
+                              ? `${user.nombre_completo} (${user.identificacion})`
                               : 'Usuario no registrado';
                             return (
                               <tr key={index}>
@@ -502,34 +551,50 @@ const Indexx = () => {
                   </div>
 
                   <div className="form-col">
-                    <div className="form-group">
-                      <label htmlFor="telefono">Teléfono</label>
-                      <input
-                        type="tel"
-                        id="telefono"
-                        name="telefono"
-                        className="form-control"
-                        value={userForm.telefono}
-                        onChange={handleUserFormChange}
-                      />
-                    </div>
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="telefono">Teléfono</label>
+                  <input
+                    type="tel"
+                    id="telefono"
+                    name="telefono"
+                    className="form-control"
+                    value={userForm.telefono}
+                    onChange={handleUserFormChange}
+                  />
                 </div>
-
-                <div className="actions">
-                  <button type="submit" className="btn btn-success">
-                    Guardar Usuario
-                  </button>
-                  <button
-                    type="reset"
-                    className="btn btn-secondary"
-                    onClick={() =>
-                      setUserForm({ uid: '', identificacion: '', nombre: '', correo: '', telefono: '' })
-                    }
+              </div>
+              <div className="form-col">
+                <div className="form-group">
+                  <label htmlFor="rol">Rol *</label>
+                  <select
+                    id="rol"
+                    name="rol"
+                    className="form-control"
+                    value={userForm.rol}
+                    onChange={handleUserFormChange}
+                    required
                   >
-                    Limpiar Formulario
-                  </button>
+                    <option value="usuario">Usuario</option>
+                    <option value="gerente">Gerente</option>
+                  </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="actions">
+              <button type="submit" className="btn btn-success">
+                Guardar Usuario
+              </button>
+              <button
+                type="reset"
+                className="btn btn-secondary"
+                onClick={() =>
+                  setUserForm({ uid: '', identificacion: '', nombre: '', correo: '', telefono: '', rol: 'usuario' })
+                }
+              >
+                Limpiar Formulario
+              </button>
+            </div>
               </form>
             </div>
 
@@ -593,6 +658,7 @@ const Indexx = () => {
           </div>
         </div>
       )}
+
 
       {/* Pestaña Registros de Acceso */}
       {activeTab === 'registros' && (
@@ -669,6 +735,76 @@ const Indexx = () => {
         </div>
       )}
 
+      {/* Pestaña Asignación de Tarjetas */}
+      {activeTab === 'asignacion' && (
+        <div className="tab-content active" id="asignacion">
+          <div className="data-section">
+            <h2 className="section-title">🎫 Asignar Tarjeta a Usuario</h2>
+
+            {assignMessage && (
+              <div className={assignMessageType === 'error' ? 'error-message' : 'success-message'}>
+                {assignMessage}
+              </div>
+            )}
+
+            <form id="assignForm" onSubmit={handleAssignSubmit}>
+              <div className="form-row">
+                <div className="form-col">
+                  <div className="form-group">
+                    <label htmlFor="gerenteUid">UID Gerente *</label>
+                    <input
+                      type="text"
+                      id="gerenteUid"
+                      name="gerenteUid"
+                      className="form-control"
+                      value={assignForm.gerenteUid}
+                      onChange={handleAssignFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-col">
+                  <div className="form-group">
+                    <label htmlFor="usuarioUid">UID Usuario *</label>
+                    <input
+                      type="text"
+                      id="usuarioUid"
+                      name="usuarioUid"
+                      className="form-control"
+                      value={assignForm.usuarioUid}
+                      onChange={handleAssignFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-col">
+                  <div className="form-group">
+                    <label htmlFor="tarjetaId">ID Tarjeta *</label>
+                    <input
+                      type="text"
+                      id="tarjetaId"
+                      name="tarjetaId"
+                      className="form-control"
+                      value={assignForm.tarjetaId}
+                      onChange={handleAssignFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="actions">
+                <button type="submit" className="btn btn-primary" disabled={loading.asignacion}>
+                  {loading.asignacion ? 'Asignando...' : 'Asignar Tarjeta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal para editar usuario */}
       {editModalVisible && (
         <div
@@ -717,13 +853,13 @@ const Indexx = () => {
                 </div>
                 <div className="form-col">
                   <div className="form-group">
-                    <label htmlFor="editNombre">Nombre Completo *</label>
+                    <label htmlFor="editNombreCompleto">Nombre Completo *</label>
                     <input
                       type="text"
-                      id="editNombre"
-                      name="nombre"
+                      id="editNombreCompleto"
+                      name="nombre_completo"
                       className="form-control"
-                      value={editUserForm.nombre}
+                      value={editUserForm.nombre_completo}
                       onChange={handleEditUserFormChange}
                       required
                     />
@@ -755,6 +891,24 @@ const Indexx = () => {
                       value={editUserForm.telefono}
                       onChange={handleEditUserFormChange}
                     />
+                  </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-col">
+                  <div className="form-group">
+                    <label htmlFor="editRol">Rol *</label>
+                    <select
+                      id="editRol"
+                      name="rol"
+                      className="form-control"
+                      value={editUserForm.rol}
+                      onChange={handleEditUserFormChange}
+                      required
+                    >
+                      <option value="usuario">Usuario</option>
+                      <option value="gerente">Gerente</option>
+                    </select>
                   </div>
                 </div>
               </div>

@@ -132,7 +132,7 @@ app.get('/api/historial-entradas', async (req, res) => {
 
 app.get('/api/usuarios', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT uid, identificacion, nombre_completo, correo, telefono, fecha_registro FROM usuarios');
+    const [rows] = await pool.query('SELECT uid, identificacion, nombre_completo, correo, telefono, rol, fecha_registro FROM usuarios');
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
@@ -141,8 +141,8 @@ app.get('/api/usuarios', async (req, res) => {
 });
 
 app.post('/api/usuarios', async (req, res) => {
-  const { uid, identificacion, nombre_completo, correo, telefono } = req.body;
-  if (!uid || !identificacion || !nombre_completo) {
+  const { uid, identificacion, nombre_completo, correo, telefono, rol } = req.body;
+  if (!uid || !identificacion || !nombre_completo || !rol) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   if (telefono && telefono.length > 15) {
@@ -155,8 +155,8 @@ app.post('/api/usuarios', async (req, res) => {
       return res.status(409).json({ error: 'El UID ya está registrado' });
     }
     await pool.query(
-      'INSERT INTO usuarios (uid, identificacion, nombre_completo, correo, telefono) VALUES (?, ?, ?, ?, ?)',
-      [uid, identificacion, nombre_completo, correo || null, telefono || null]
+      'INSERT INTO usuarios (uid, identificacion, nombre_completo, correo, telefono, rol) VALUES (?, ?, ?, ?, ?, ?)',
+      [uid, identificacion, nombre_completo, correo || null, telefono || null, rol]
     );
     res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (error) {
@@ -167,14 +167,14 @@ app.post('/api/usuarios', async (req, res) => {
 
 app.put('/api/usuarios/:uid', async (req, res) => {
   const { uid } = req.params;
-  const { identificacion, nombre_completo, correo, telefono } = req.body;
-  if (!identificacion || !nombre_completo) {
+  const { identificacion, nombre_completo, correo, telefono, rol } = req.body;
+  if (!identificacion || !nombre_completo || !rol) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
     const [result] = await pool.query(
-      'UPDATE usuarios SET identificacion = ?, nombre_completo = ?, correo = ?, telefono = ? WHERE uid = ?',
-      [identificacion, nombre_completo, correo || null, telefono || null, uid]
+      'UPDATE usuarios SET identificacion = ?, nombre_completo = ?, correo = ?, telefono = ?, rol = ? WHERE uid = ?',
+      [identificacion, nombre_completo, correo || null, telefono || null, rol, uid]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -213,6 +213,93 @@ app.get('/api/accesos', async (req, res) => {
   } catch (error) {
     console.error('Error al obtener registros de acceso:', error);
     res.status(500).json({ error: 'Error interno del servidor', detalle: error });
+  }
+});
+
+app.post('/api/asignar-tarjeta', async (req, res) => {
+  const { gerenteUid, usuarioUid, tarjetaId } = req.body;
+  if (!gerenteUid || !usuarioUid || !tarjetaId) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  try {
+    // Verificar que el gerente existe y tiene rol 'gerente'
+    const [gerenteRows] = await pool.query('SELECT rol FROM usuarios WHERE uid = ?', [gerenteUid]);
+    if (gerenteRows.length === 0 || gerenteRows[0].rol !== 'gerente') {
+      return res.status(403).json({ error: 'Acceso denegado: no es gerente' });
+    }
+    // Verificar que el usuario existe
+    const [usuarioRows] = await pool.query('SELECT uid FROM usuarios WHERE uid = ?', [usuarioUid]);
+    if (usuarioRows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    // Aquí se debería hacer la asignación de la tarjeta al usuario
+    // Por ejemplo, insertar en una tabla asignaciones_tarjetas (que habría que crear)
+    await pool.query(
+      'INSERT INTO asignaciones_tarjetas (usuario_uid, tarjeta_id, asignado_por, fecha_asignacion) VALUES (?, ?, ?, NOW())',
+      [usuarioUid, tarjetaId, gerenteUid]
+    );
+    res.status(201).json({ message: 'Tarjeta asignada correctamente' });
+  } catch (error) {
+    console.error('Error al asignar tarjeta:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
+
+// Registro de gerente
+app.post('/api/gerentes/register', async (req, res) => {
+  const { uid, identificacion, nombre_completo, correo, telefono, password } = req.body;
+  if (!uid || !identificacion || !nombre_completo || !password) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  try {
+    // Verificar si el UID ya existe
+    const [existing] = await pool.query('SELECT uid FROM usuarios WHERE uid = ?', [uid]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'El UID ya está registrado' });
+    }
+    // Verificar si la identificación ya existe
+    const [existingIdent] = await pool.query('SELECT identificacion FROM usuarios WHERE identificacion = ?', [identificacion]);
+    if (existingIdent.length > 0) {
+      return res.status(409).json({ error: 'La identificación ya está registrada' });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await pool.query(
+      'INSERT INTO usuarios (uid, identificacion, nombre_completo, correo, telefono, rol, password) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [uid, identificacion, nombre_completo, correo || null, telefono || null, 'gerente', hashedPassword]
+    );
+    res.status(201).json({ message: 'Gerente registrado correctamente' });
+  } catch (error) {
+    console.error('Error al registrar gerente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Login de gerente
+app.post('/api/gerentes/login', async (req, res) => {
+  const { identificacion, password } = req.body;
+  if (!identificacion || !password) {
+    return res.status(400).json({ error: 'Identificación y contraseña son obligatorios' });
+  }
+  try {
+    const [rows] = await pool.query(
+      'SELECT uid, identificacion, nombre_completo, correo, telefono, rol, password FROM usuarios WHERE identificacion = ? AND rol = ?',
+      [identificacion, 'gerente']
+    );
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    const user = rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    delete user.password;
+    res.json({ message: 'Login exitoso', gerente: user });
+  } catch (error) {
+    console.error('Error en login gerente:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
