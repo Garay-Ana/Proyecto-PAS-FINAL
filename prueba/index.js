@@ -117,9 +117,15 @@ app.get('/api/historial', (req, res) => {
 app.get('/api/historial-entradas', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.nombre, e.apellido, r.fecha_hora
+      SELECT 
+        COALESCE(e.nombre, u.nombre_completo) AS nombre,
+        COALESCE(e.apellido, '') AS apellido,
+        COALESCE(u.identificacion, '') AS identificacion,
+        r.uid,
+        r.fecha_hora
       FROM entradas_remotos r
-      JOIN empleados_remotos e ON r.usuario_id = e.id
+      LEFT JOIN empleados_remotos e ON r.usuario_id = e.id
+      LEFT JOIN usuarios u ON r.usuario_id = u.uid
       ORDER BY r.fecha_hora DESC
       LIMIT 100
     `);
@@ -144,6 +150,9 @@ app.post('/api/usuarios', async (req, res) => {
   const { uid, identificacion, nombre_completo, correo, telefono } = req.body;
   if (!uid || !identificacion || !nombre_completo) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  if (telefono && telefono.length > 15) {
+    return res.status(400).json({ error: 'El teléfono es demasiado largo' });
   }
   try {
     // Verificar si el UID ya existe
@@ -170,7 +179,7 @@ app.put('/api/usuarios/:uid', async (req, res) => {
   }
   try {
     const [result] = await pool.query(
-      'UPDATE empleados_remotos SET identificacion = ?, nombre_completo = ?, correo = ?, telefono = ? WHERE uid = ?',
+      'UPDATE usuarios SET identificacion = ?, nombre_completo = ?, correo = ?, telefono = ? WHERE uid = ?',
       [identificacion, nombre_completo, correo || null, telefono || null, uid]
     );
     if (result.affectedRows === 0) {
@@ -186,7 +195,7 @@ app.put('/api/usuarios/:uid', async (req, res) => {
 app.delete('/api/usuarios/:uid', async (req, res) => {
   const { uid } = req.params;
   try {
-    const [result] = await pool.query('DELETE FROM empleados_remotos WHERE uid = ?', [uid]);
+    const [result] = await pool.query('DELETE FROM usuarios WHERE uid = ?', [uid]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }

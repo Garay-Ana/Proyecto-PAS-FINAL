@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './indexx.css';
 
-const API_URL = 'https://proyecto-pas-final.onrender.com/api/historial';
+const API_URL = 'https://pruepas.onrender.com/api/historial';
 const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
 const ACCESS_API_URL = 'https://proyecto-pas-final.onrender.com/api/accesos';
 
@@ -263,7 +263,13 @@ const Indexx = () => {
   };
 
   useEffect(() => {
-    loadData();
+    const loadAndSetUID = async () => {
+      await loadData();
+      if (lastScannedUID) {
+        setUserForm((prev) => ({ ...prev, uid: lastScannedUID }));
+      }
+    };
+    loadAndSetUID();
     const intervalLoad = setInterval(loadData, 30000);
     return () => clearInterval(intervalLoad);
   }, []);
@@ -565,7 +571,7 @@ const Indexx = () => {
                               <span className="uid-code">{user.uid}</span>
                             </td>
                             <td>{user.identificacion}</td>
-                            <td>{user.nombre}</td>
+                            <td>{user.nombre_completo}</td>
                             <td>{user.correo || '-'}</td>
                             <td>{user.telefono || '-'}</td>
                             <td>
