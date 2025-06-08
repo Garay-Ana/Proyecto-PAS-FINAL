@@ -203,9 +203,9 @@ app.delete('/api/usuarios/:uid', async (req, res) => {
 app.get('/api/accesos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT r.id, r.uid, r.usuario_id, r.timestamp, r.es_registrado, e.nombre
+      SELECT r.id, r.uid, r.usuario_id, r.timestamp, r.es_registrado, u.nombre_completo AS nombre
       FROM accesos r
-      LEFT JOIN empleados_remotos e ON r.usuario_id = e.id
+      LEFT JOIN usuarios u ON r.usuario_id = u.uid
       ORDER BY r.timestamp DESC
       LIMIT 100
     `);
