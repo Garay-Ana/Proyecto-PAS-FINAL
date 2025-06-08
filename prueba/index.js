@@ -247,6 +247,8 @@ app.post('/api/asignar-tarjeta', async (req, res) => {
 
 const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
 
+const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
+
 // Registro de gerente
 app.post('/api/gerentes/register', async (req, res) => {
   const { identificacion, nombre_completo, correo, telefono, password } = req.body;
@@ -255,14 +257,14 @@ app.post('/api/gerentes/register', async (req, res) => {
   }
   try {
     // Verificar si la identificación ya existe
-    const [existingIdent] = await pool.query('SELECT identificacion FROM usuarios WHERE identificacion = ?', [identificacion]);
+    const [existingIdent] = await pool.query('SELECT identificacion FROM gerentes WHERE identificacion = ?', [identificacion]);
     if (existingIdent.length > 0) {
       return res.status(409).json({ error: 'La identificación ya está registrada' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     await pool.query(
-      'INSERT INTO usuarios (identificacion, nombre_completo, correo, telefono, rol, password) VALUES (?, ?, ?, ?, ?, ?)',
-      [identificacion, nombre_completo, correo || null, telefono || null, 'gerente', hashedPassword]
+      'INSERT INTO gerentes (identificacion, nombre_completo, correo, telefono, password) VALUES (?, ?, ?, ?, ?)',
+      [identificacion, nombre_completo, correo || null, telefono || null, hashedPassword]
     );
     res.status(201).json({ message: 'Gerente registrado correctamente' });
   } catch (error) {
@@ -279,8 +281,8 @@ app.post('/api/gerentes/login', async (req, res) => {
   }
   try {
     const [rows] = await pool.query(
-      'SELECT uid, identificacion, nombre_completo, correo, telefono, rol, password FROM usuarios WHERE identificacion = ? AND rol = ?',
-      [identificacion, 'gerente']
+      'SELECT id, identificacion, nombre_completo, correo, telefono, password FROM gerentes WHERE identificacion = ?',
+      [identificacion]
     );
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
