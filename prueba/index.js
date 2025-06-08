@@ -180,7 +180,7 @@ app.put('/api/usuarios/:uid', async (req, res) => {
     res.json({ message: 'Usuario actualizado correctamente' });
   } catch (error) {
     console.error('Error al actualizar usuario:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor', detalle: error });
   }
 });
 
