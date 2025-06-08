@@ -130,20 +130,19 @@ app.get('/api/historial-entradas', async (req, res) => {
   }
 });
 
-// Rutas para usuarios
 app.get('/api/usuarios', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT uid, identificacion, nombre, correo, telefono FROM empleados_remotos');
+    const [rows] = await pool.query('SELECT uid, identificacion, nombre_completo, correo, telefono, fecha_registro FROM empleados_remotos');
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor', detalle: error });
   }
 });
 
 app.post('/api/usuarios', async (req, res) => {
-  const { uid, identificacion, nombre, correo, telefono } = req.body;
-  if (!uid || !identificacion || !nombre) {
+  const { uid, identificacion, nombre_completo, correo, telefono } = req.body;
+  if (!uid || !identificacion || !nombre_completo) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
@@ -153,8 +152,8 @@ app.post('/api/usuarios', async (req, res) => {
       return res.status(409).json({ error: 'El UID ya está registrado' });
     }
     await pool.query(
-      'INSERT INTO empleados_remotos (uid, identificacion, nombre, correo, telefono) VALUES (?, ?, ?, ?, ?)',
-      [uid, identificacion, nombre, correo || null, telefono || null]
+      'INSERT INTO empleados_remotos (uid, identificacion, nombre_completo, correo, telefono) VALUES (?, ?, ?, ?, ?)',
+      [uid, identificacion, nombre_completo, correo || null, telefono || null]
     );
     res.status(201).json({ message: 'Usuario registrado correctamente' });
   } catch (error) {
@@ -165,14 +164,14 @@ app.post('/api/usuarios', async (req, res) => {
 
 app.put('/api/usuarios/:uid', async (req, res) => {
   const { uid } = req.params;
-  const { identificacion, nombre, correo, telefono } = req.body;
-  if (!identificacion || !nombre) {
+  const { identificacion, nombre_completo, correo, telefono } = req.body;
+  if (!identificacion || !nombre_completo) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
     const [result] = await pool.query(
-      'UPDATE empleados_remotos SET identificacion = ?, nombre = ?, correo = ?, telefono = ? WHERE uid = ?',
-      [identificacion, nombre, correo || null, telefono || null, uid]
+      'UPDATE empleados_remotos SET identificacion = ?, nombre_completo = ?, correo = ?, telefono = ? WHERE uid = ?',
+      [identificacion, nombre_completo, correo || null, telefono || null, uid]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
