@@ -249,16 +249,11 @@ const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
 
 // Registro de gerente
 app.post('/api/gerentes/register', async (req, res) => {
-  const { uid, identificacion, nombre_completo, correo, telefono, password } = req.body;
-  if (!uid || !identificacion || !nombre_completo || !password) {
+  const { identificacion, nombre_completo, correo, telefono, password } = req.body;
+  if (!identificacion || !nombre_completo || !password) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
-    // Verificar si el UID ya existe
-    const [existing] = await pool.query('SELECT uid FROM usuarios WHERE uid = ?', [uid]);
-    if (existing.length > 0) {
-      return res.status(409).json({ error: 'El UID ya está registrado' });
-    }
     // Verificar si la identificación ya existe
     const [existingIdent] = await pool.query('SELECT identificacion FROM usuarios WHERE identificacion = ?', [identificacion]);
     if (existingIdent.length > 0) {
@@ -266,8 +261,8 @@ app.post('/api/gerentes/register', async (req, res) => {
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     await pool.query(
-      'INSERT INTO usuarios (uid, identificacion, nombre_completo, correo, telefono, rol, password) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [uid, identificacion, nombre_completo, correo || null, telefono || null, 'gerente', hashedPassword]
+      'INSERT INTO usuarios (identificacion, nombre_completo, correo, telefono, rol, password) VALUES (?, ?, ?, ?, ?, ?)',
+      [identificacion, nombre_completo, correo || null, telefono || null, 'gerente', hashedPassword]
     );
     res.status(201).json({ message: 'Gerente registrado correctamente' });
   } catch (error) {
