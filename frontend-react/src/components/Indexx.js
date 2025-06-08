@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './indexx.css';
 
-const API_URL = 'http://localhost:3000/api/historial';
-const USERS_API_URL = 'http://localhost:3000/api/usuarios';
-const ACCESS_API_URL = 'http://localhost:3000/api/accesos';
+const API_URL = 'https://proyecto-pas-final.onrender.com/api/historial';
+const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
+const ACCESS_API_URL = 'https://proyecto-pas-final.onrender.com/api/accesos';
 
 const Indexx = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
