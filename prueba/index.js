@@ -147,12 +147,12 @@ app.post('/api/usuarios', async (req, res) => {
   }
   try {
     // Verificar si el UID ya existe
-    const [existing] = await pool.query('SELECT uid FROM empleados_remotos WHERE uid = ?', [uid]);
+    const [existing] = await pool.query('SELECT uid FROM usuarios WHERE uid = ?', [uid]);
     if (existing.length > 0) {
       return res.status(409).json({ error: 'El UID ya está registrado' });
     }
     await pool.query(
-      'INSERT INTO empleados_remotos (uid, identificacion, nombre_completo, correo, telefono) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO usuarios (uid, identificacion, nombre_completo, correo, telefono) VALUES (?, ?, ?, ?, ?)',
       [uid, identificacion, nombre_completo, correo || null, telefono || null]
     );
     res.status(201).json({ message: 'Usuario registrado correctamente' });

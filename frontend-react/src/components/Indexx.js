@@ -16,7 +16,7 @@ const Indexx = () => {
   const [userForm, setUserForm] = useState({
     uid: '',
     identificacion: '',
-    nombre: '',
+    nombre_completo: '',
     correo: '',
     telefono: '',
   });
@@ -163,8 +163,8 @@ const Indexx = () => {
 
   const handleUserFormSubmit = async (e) => {
     e.preventDefault();
-    const { uid, identificacion, nombre, correo, telefono } = userForm;
-    if (!uid || !identificacion || !nombre) {
+    const { uid, identificacion, nombre_completo, correo, telefono } = userForm;
+    if (!uid || !identificacion || !nombre_completo) {
       setUserFormMessage('Por favor complete los campos obligatorios (*)');
       setUserFormMessageType('error');
       return;
@@ -173,7 +173,7 @@ const Indexx = () => {
       const res = await fetch(USERS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, identificacion, nombre, correo, telefono }),
+        body: JSON.stringify({ uid, identificacion, nombre_completo, correo, telefono }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -183,7 +183,7 @@ const Indexx = () => {
       setUsersData((prev) => [...prev, newUser]);
       setUserFormMessage('Usuario registrado correctamente');
       setUserFormMessageType('success');
-      setUserForm({ uid: '', identificacion: '', nombre: '', correo: '', telefono: '' });
+      setUserForm({ uid: '', identificacion: '', nombre_completo: '', correo: '', telefono: '' });
     } catch (error) {
       setUserFormMessage(`Error al guardar usuario: ${error.message}`);
       setUserFormMessageType('error');
@@ -469,10 +469,10 @@ const Indexx = () => {
                       <label htmlFor="nombre">Nombre Completo *</label>
                       <input
                         type="text"
-                        id="nombre"
-                        name="nombre"
+                        id="nombre_completo"
+                        name="nombre_completo"
                         className="form-control"
-                        value={userForm.nombre}
+                        value={userForm.nombre_completo}
                         onChange={handleUserFormChange}
                         required
                       />
