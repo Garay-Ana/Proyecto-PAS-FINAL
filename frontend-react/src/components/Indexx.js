@@ -2,17 +2,31 @@ import React, { useState, useEffect } from 'react';
 import './indexx.css';
 
 const API_URL = 'https://pruepas.onrender.com/api/historial';
-const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
-const ACCESS_API_URL = 'https://proyecto-pas-final.onrender.com/api/accesos';
+const USERS_API_URL = 'https://pruepas.onrender.com/api/usuarios';
+const ACCESS_API_URL = 'https://pruepas.onrender.com/api/accesos';
+const TIME_API_URL = 'https://pruepas.onrender.com/api/tiempos';
 
 const Indexx = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [historialData, setHistorialData] = useState([]);
   const [usersData, setUsersData] = useState([]);
   const [accessRecords, setAccessRecords] = useState([]);
+  const [timeRecords, setTimeRecords] = useState([]);
   const [lastScannedUID, setLastScannedUID] = useState('');
-  const [status, setStatus] = useState(true);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState({
+    historial: false,
+    users: false,
+    accesos: false,
+    tiempos: false,
+    asignacion: false,
+  });
+  const [errorMessages, setErrorMessages] = useState({
+    historial: '',
+    users: '',
+    accesos: '',
+    tiempos: '',
+    asignacion: '',
+  });
   const [userForm, setUserForm] = useState({
     uid: '',
     identificacion: '',
@@ -32,18 +46,6 @@ const Indexx = () => {
     telefono: '',
     rol: 'usuario',
   });
-  const [loading, setLoading] = useState({
-    historial: false,
-    users: false,
-    accesos: false,
-    asignacion: false,
-  });
-  const [errorMessages, setErrorMessages] = useState({
-    historial: '',
-    users: '',
-    accesos: '',
-    asignacion: '',
-  });
   const [assignForm, setAssignForm] = useState({
     gerenteUid: '',
     usuarioUid: '',
@@ -52,7 +54,7 @@ const Indexx = () => {
   const [assignMessage, setAssignMessage] = useState('');
   const [assignMessageType, setAssignMessageType] = useState('');
 
-  // Formateo de fecha y tiempo transcurrido
+  // Format date and time ago
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('es-ES', {
@@ -79,12 +81,7 @@ const Indexx = () => {
     return `${diffDays}d ${diffHours % 24}h`;
   };
 
-  // Actualizar estadísticas
-  const updateStats = (data) => {
-    // Esta función puede actualizar estados si se desea mostrar estadísticas
-  };
-
-  // Cargar datos iniciales
+  // Load data functions
   const loadData = async () => {
     setLoading((prev) => ({ ...prev, historial: true }));
     setErrorMessages((prev) => ({ ...prev, historial: '' }));
@@ -105,13 +102,7 @@ const Indexx = () => {
       if (historial.length > 0) {
         setLastScannedUID(historial[historial.length - 1].uid);
       }
-
-      updateStats(historial);
-      setStatus(true);
-      setStatusMessage('');
     } catch (error) {
-      setStatus(false);
-      setStatusMessage('Error de conexión');
       setErrorMessages((prev) => ({ ...prev, historial: `No se pudieron cargar los datos: ${error.message}` }));
     } finally {
       setLoading((prev) => ({ ...prev, historial: false }));
@@ -126,11 +117,7 @@ const Indexx = () => {
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();
       setUsersData(data);
-      setStatus(true);
-      setStatusMessage('');
     } catch (error) {
-      setStatus(false);
-      setStatusMessage('Error de conexión');
       setErrorMessages((prev) => ({ ...prev, users: `No se pudieron cargar los usuarios: ${error.message}` }));
     } finally {
       setLoading((prev) => ({ ...prev, users: false }));
@@ -145,30 +132,63 @@ const Indexx = () => {
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();
       setAccessRecords(data);
-      setStatus(true);
-      setStatusMessage('');
     } catch (error) {
-      setStatus(false);
-      setStatusMessage('Error de conexión');
       setErrorMessages((prev) => ({ ...prev, accesos: `No se pudieron cargar los registros: ${error.message}` }));
     } finally {
       setLoading((prev) => ({ ...prev, accesos: false }));
     }
   };
 
-  // Manejo de pestañas
+  const loadTimeRecords = async () => {
+    setLoading((prev) => ({ ...prev, tiempos: true }));
+    setErrorMessages((prev) => ({ ...prev, tiempos: '' }));
+    try {
+      const res = await fetch(TIME_API_URL);
+      if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
+      const data = await res.json();
+      setTimeRecords(data);
+    } catch (error) {
+      setErrorMessages((prev) => ({ ...prev, tiempos: `No se pudieron cargar los tiempos: ${error.message}` }));
+    } finally {
+      setLoading((prev) => ({ ...prev, tiempos: false }));
+    }
+  };
+
+  // Process time entry (entrada/salida)
+  const processTimeEntry = async (uid, timestamp) => {
+    try {
+      const res = await fetch(`${TIME_API_URL}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, timestamp }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al procesar entrada/salida');
+      }
+      const result = await res.json();
+      // Refresh time records after processing
+      loadTimeRecords();
+      return result;
+    } catch (error) {
+      console.error('Error al procesar entrada/salida:', error);
+      return null;
+    }
+  };
+
+  // Tab click handler
   const handleTabClick = (tab) => {
     setActiveTab(tab);
     if (tab === 'usuarios') {
       loadUsers();
     } else if (tab === 'registros') {
       loadAccessRecords();
-    } else if (tab === 'asignacion') {
-      // No action needed for now
+    } else if (tab === 'tiempos') {
+      loadTimeRecords();
     }
   };
 
-  // Manejo formulario usuario nuevo
+  // User form handlers
   const handleUserFormChange = (e) => {
     const { name, value } = e.target;
     setUserForm((prev) => ({ ...prev, [name]: value }));
@@ -203,16 +223,17 @@ const Indexx = () => {
     }
   };
 
-  // Manejo modal edición usuario
+  // Edit modal handlers
   const openEditModal = (uid) => {
     const user = usersData.find((u) => u.uid === uid);
     if (!user) return;
     setEditUserForm({
       uid: user.uid,
       identificacion: user.identificacion,
-      nombre: user.nombre,
+      nombre_completo: user.nombre_completo,
       correo: user.correo || '',
       telefono: user.telefono || '',
+      rol: user.rol || 'usuario',
     });
     setEditModalVisible(true);
   };
@@ -243,7 +264,7 @@ const Indexx = () => {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Error al actualizar usuario');
       }
-      // Actualizar usuarios localmente
+      // Update local users data
       setUsersData((prev) =>
         prev.map((user) => (user.uid === uid ? { ...user, identificacion, nombre_completo, correo, telefono, rol } : user))
       );
@@ -253,7 +274,7 @@ const Indexx = () => {
     }
   };
 
-  // Eliminar usuario
+  // Delete user
   const deleteUser = async (uid) => {
     if (!window.confirm('¿Está seguro que desea eliminar este usuario?')) return;
     try {
@@ -268,13 +289,14 @@ const Indexx = () => {
     }
   };
 
-  // Capturar último UID escaneado
+  // Capture last scanned UID
   const captureLastUID = () => {
     if (lastScannedUID) {
       setUserForm((prev) => ({ ...prev, uid: lastScannedUID }));
     }
   };
 
+  // Assign card form handlers
   const handleAssignFormChange = (e) => {
     const { name, value } = e.target;
     setAssignForm((prev) => ({ ...prev, [name]: value }));
@@ -291,7 +313,7 @@ const Indexx = () => {
     setLoading((prev) => ({ ...prev, asignacion: true }));
     setAssignMessage('');
     try {
-      const res = await fetch('https://proyecto-pas-final.onrender.com/api/asignar-tarjeta', {
+      const res = await fetch('https://pruepas.onrender.com/api/asignar-tarjeta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gerenteUid, usuarioUid, tarjetaId }),
@@ -312,20 +334,13 @@ const Indexx = () => {
   };
 
   useEffect(() => {
-    const loadAndSetUID = async () => {
-      await loadData();
-      if (lastScannedUID) {
-        setUserForm((prev) => ({ ...prev, uid: lastScannedUID }));
-      }
-    };
-    loadAndSetUID();
+    loadData();
     const intervalLoad = setInterval(loadData, 30000);
     return () => clearInterval(intervalLoad);
   }, []);
 
   useEffect(() => {
     const intervalUpdateTimes = setInterval(() => {
-      // Forcing re-render to update time ago
       setHistorialData((prev) => [...prev]);
       setAccessRecords((prev) => [...prev]);
     }, 60000);
@@ -358,9 +373,14 @@ const Indexx = () => {
         >
           Registros de Acceso
         </div>
+        <div
+          className={`tab ${activeTab === 'tiempos' ? 'active' : ''}`}
+          onClick={() => handleTabClick('tiempos')}
+        >
+          Control de Tiempos
+        </div>
       </div>
 
-      {/* Pestaña Dashboard */}
       {activeTab === 'dashboard' && (
         <div className="tab-content active" id="dashboard">
           <div className="stats-container">
@@ -398,8 +418,8 @@ const Indexx = () => {
 
           <div className="controls">
             <div className="status-indicator">
-              <div className={`status-dot ${status ? '' : 'offline'}`} id="statusDot"></div>
-              <span id="statusText">{status ? 'Conectado' : statusMessage}</span>
+              <div className={`status-dot ${true ? '' : 'offline'}`} id="statusDot"></div>
+              <span id="statusText">{true ? 'Conectado' : ''}</span>
             </div>
             <button className="btn" onClick={loadData}>
               <span>🔄</span> Actualizar Datos
@@ -471,7 +491,6 @@ const Indexx = () => {
         </div>
       )}
 
-      {/* Pestaña Gestión de Usuarios */}
       {activeTab === 'usuarios' && (
         <div className="tab-content active" id="usuarios">
           <div className="data-section">
@@ -521,7 +540,7 @@ const Indexx = () => {
 
                   <div className="form-col">
                     <div className="form-group">
-                      <label htmlFor="nombre">Nombre Completo *</label>
+                      <label htmlFor="nombre_completo">Nombre Completo *</label>
                       <input
                         type="text"
                         id="nombre_completo"
@@ -551,50 +570,51 @@ const Indexx = () => {
                   </div>
 
                   <div className="form-col">
-                <div className="form-group">
-                  <label htmlFor="telefono">Teléfono</label>
-                  <input
-                    type="tel"
-                    id="telefono"
-                    name="telefono"
-                    className="form-control"
-                    value={userForm.telefono}
-                    onChange={handleUserFormChange}
-                  />
-                </div>
-              </div>
-              <div className="form-col">
-                <div className="form-group">
-                  <label htmlFor="rol">Rol *</label>
-                  <select
-                    id="rol"
-                    name="rol"
-                    className="form-control"
-                    value={userForm.rol}
-                    onChange={handleUserFormChange}
-                    required
-                  >
-                    <option value="usuario">Usuario</option>
-                    <option value="gerente">Gerente</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+                    <div className="form-group">
+                      <label htmlFor="telefono">Teléfono</label>
+                      <input
+                        type="tel"
+                        id="telefono"
+                        name="telefono"
+                        className="form-control"
+                        value={userForm.telefono}
+                        onChange={handleUserFormChange}
+                      />
+                    </div>
+                  </div>
 
-            <div className="actions">
-              <button type="submit" className="btn btn-success">
-                Guardar Usuario
-              </button>
-              <button
-                type="reset"
-                className="btn btn-secondary"
-                onClick={() =>
-                  setUserForm({ uid: '', identificacion: '', nombre: '', correo: '', telefono: '', rol: 'usuario' })
-                }
-              >
-                Limpiar Formulario
-              </button>
-            </div>
+                  <div className="form-col">
+                    <div className="form-group">
+                      <label htmlFor="rol">Rol *</label>
+                      <select
+                        id="rol"
+                        name="rol"
+                        className="form-control"
+                        value={userForm.rol}
+                        onChange={handleUserFormChange}
+                        required
+                      >
+                        <option value="usuario">Usuario</option>
+                        <option value="gerente">Gerente</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button type="submit" className="btn btn-success">
+                    Guardar Usuario
+                  </button>
+                  <button
+                    type="reset"
+                    className="btn btn-secondary"
+                    onClick={() =>
+                      setUserForm({ uid: '', identificacion: '', nombre_completo: '', correo: '', telefono: '', rol: 'usuario' })
+                    }
+                  >
+                    Limpiar Formulario
+                  </button>
+                </div>
               </form>
             </div>
 
@@ -659,8 +679,6 @@ const Indexx = () => {
         </div>
       )}
 
-
-      {/* Pestaña Registros de Acceso */}
       {activeTab === 'registros' && (
         <div className="tab-content active" id="registros">
           <div className="data-section">
@@ -668,259 +686,145 @@ const Indexx = () => {
 
             <div className="controls">
               <div className="status-indicator">
-                <div className={`status-dot ${status ? '' : 'offline'}`} id="statusDotRegistros"></div>
-                <span id="statusTextRegistros">{status ? 'Conectado' : statusMessage}</span>
+                <div className={`status-dot ${true ? '' : 'offline'}`} id="statusDotRegistros"></div>
+                <span id="statusTextRegistros">{true ? 'Conectado' : ''}</span>
               </div>
               <button className="btn" onClick={loadAccessRecords}>
                 <span>🔄</span> Actualizar Registros
               </button>
             </div>
 
-            {loading.accesos && (
-              <div className="loading">
+            <div className="table-container">
+              <div id="loadingRecords" className="loading">
                 <div className="spinner"></div>
                 <span>Cargando registros...</span>
               </div>
-            )}
 
-            {errorMessages.accesos && <div className="error-message">⚠️ {errorMessages.accesos}</div>}
+              {errorMessages.accesos && <div className="error-message">⚠️ {errorMessages.accesos}</div>}
 
-            {!loading.accesos && !errorMessages.accesos && (
-              <>
-                {accessRecords.length === 0 ? (
-                  <div className="no-data">
-                    <p>📭 No hay registros de acceso</p>
-                    <p>Los registros aparecerán aquí cuando se detecten tarjetas RFID</p>
-                  </div>
-                ) : (
-                  <div className="table-container">
-                    <table id="recordsTable">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>UID</th>
-                          <th>Usuario</th>
-                          <th>Fecha y Hora</th>
-                          <th>Tiempo Transcurrido</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...accessRecords]
-                          .slice()
-                          .reverse()
-                          .map((entry, index) => {
-                            const user = usersData.find((u) => u.uid === entry.uid);
-                            const userName = user
-                              ? `${user.nombre} (${user.identificacion})`
-                              : 'Usuario no registrado';
-                            return (
-                              <tr key={entry.id}>
-                                <td>{index + 1}</td>
-                                <td>
-                                  <span className="uid-code">{entry.uid}</span>
-                                </td>
-                                <td>{userName}</td>
-                                <td className="timestamp">{formatDate(entry.timestamp)}</td>
-                                <td>{getTimeAgo(entry.timestamp)}</td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
+              {!loading.accesos && !errorMessages.accesos && (
+                <>
+                  {accessRecords.length === 0 ? (
+                    <div className="no-data">
+                      <p>📭 No hay registros de acceso</p>
+                      <p>Los registros aparecerán aquí cuando se detecten tarjetas RFID</p>
+                    </div>
+                  ) : (
+                    <div className="table-container">
+                      <table id="recordsTable">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>UID</th>
+                            <th>Usuario</th>
+                            <th>Fecha y Hora</th>
+                            <th>Tiempo Transcurrido</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...accessRecords]
+                            .slice()
+                            .reverse()
+                            .map((entry, index) => {
+                              const user = usersData.find((u) => u.uid === entry.uid);
+                              const userName = user
+                                ? `${user.nombre_completo} (${user.identificacion})`
+                                : 'Usuario no registrado';
+                              return (
+                                <tr key={entry.id}>
+                                  <td>{index + 1}</td>
+                                  <td>
+                                    <span className="uid-code">{entry.uid}</span>
+                                  </td>
+                                  <td>{userName}</td>
+                                  <td className="timestamp">{formatDate(entry.timestamp)}</td>
+                                  <td>{getTimeAgo(entry.timestamp)}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Pestaña Asignación de Tarjetas */}
-      {activeTab === 'asignacion' && (
-        <div className="tab-content active" id="asignacion">
+      {activeTab === 'tiempos' && (
+        <div className="tab-content active" id="tiempos">
           <div className="data-section">
-            <h2 className="section-title">🎫 Asignar Tarjeta a Usuario</h2>
+            <h2 className="section-title">⏱️ Control de Tiempos de Permanencia</h2>
 
-            {assignMessage && (
-              <div className={assignMessageType === 'error' ? 'error-message' : 'success-message'}>
-                {assignMessage}
+            <div className="controls">
+              <div className="status-indicator">
+                <div className={`status-dot ${true ? '' : 'offline'}`} id="statusDotTiempos"></div>
+                <span id="statusTextTiempos">{true ? 'Conectado' : ''}</span>
               </div>
-            )}
+              <button className="btn" onClick={loadTimeRecords}>
+                <span>🔄</span> Actualizar Tiempos
+              </button>
+            </div>
 
-            <form id="assignForm" onSubmit={handleAssignSubmit}>
-              <div className="form-row">
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="gerenteUid">UID Gerente *</label>
-                    <input
-                      type="text"
-                      id="gerenteUid"
-                      name="gerenteUid"
-                      className="form-control"
-                      value={assignForm.gerenteUid}
-                      onChange={handleAssignFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="usuarioUid">UID Usuario *</label>
-                    <input
-                      type="text"
-                      id="usuarioUid"
-                      name="usuarioUid"
-                      className="form-control"
-                      value={assignForm.usuarioUid}
-                      onChange={handleAssignFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="tarjetaId">ID Tarjeta *</label>
-                    <input
-                      type="text"
-                      id="tarjetaId"
-                      name="tarjetaId"
-                      className="form-control"
-                      value={assignForm.tarjetaId}
-                      onChange={handleAssignFormChange}
-                      required
-                    />
-                  </div>
-                </div>
+            <div className="table-container">
+              <div id="loadingTimes" className="loading">
+                <div className="spinner"></div>
+                <span>Cargando tiempos...</span>
               </div>
 
-              <div className="actions">
-                <button type="submit" className="btn btn-primary" disabled={loading.asignacion}>
-                  {loading.asignacion ? 'Asignando...' : 'Asignar Tarjeta'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              {errorMessages.tiempos && <div className="error-message">⚠️ {errorMessages.tiempos}</div>}
 
-      {/* Modal para editar usuario */}
-      {editModalVisible && (
-        <div
-          id="editModal"
-          style={{
-            display: 'flex',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1000,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '12px',
-              width: '90%',
-              maxWidth: '600px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-          >
-            <h2 style={{ marginBottom: '20px' }}>✏️ Editar Usuario</h2>
-            <form id="editUserForm" onSubmit={handleEditUserFormSubmit}>
-              <input type="hidden" name="uid" value={editUserForm.uid} />
-              <div className="form-row">
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="editIdentificacion">Identificación *</label>
-                    <input
-                      type="text"
-                      id="editIdentificacion"
-                      name="identificacion"
-                      className="form-control"
-                      value={editUserForm.identificacion}
-                      onChange={handleEditUserFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="editNombreCompleto">Nombre Completo *</label>
-                    <input
-                      type="text"
-                      id="editNombreCompleto"
-                      name="nombre_completo"
-                      className="form-control"
-                      value={editUserForm.nombre_completo}
-                      onChange={handleEditUserFormChange}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="editCorreo">Correo Electrónico</label>
-                    <input
-                      type="email"
-                      id="editCorreo"
-                      name="correo"
-                      className="form-control"
-                      value={editUserForm.correo}
-                      onChange={handleEditUserFormChange}
-                    />
-                  </div>
-                </div>
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="editTelefono">Teléfono</label>
-                    <input
-                      type="tel"
-                      id="editTelefono"
-                      name="telefono"
-                      className="form-control"
-                      value={editUserForm.telefono}
-                      onChange={handleEditUserFormChange}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-col">
-                  <div className="form-group">
-                    <label htmlFor="editRol">Rol *</label>
-                    <select
-                      id="editRol"
-                      name="rol"
-                      className="form-control"
-                      value={editUserForm.rol}
-                      onChange={handleEditUserFormChange}
-                      required
-                    >
-                      <option value="usuario">Usuario</option>
-                      <option value="gerente">Gerente</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="actions">
-                <button type="submit" className="btn btn-success">
-                  Guardar Cambios
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={closeEditModal}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
+              {!loading.tiempos && !errorMessages.tiempos && (
+                <>
+                  {timeRecords.length === 0 ? (
+                    <div className="no-data">
+                      <p>⏰ No hay registros de tiempo</p>
+                      <p>Los tiempos de permanencia aparecerán aquí</p>
+                    </div>
+                  ) : (
+                    <div className="table-container">
+                      <table id="timesTable">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Usuario</th>
+                            <th>Fecha</th>
+                            <th>Hora Entrada</th>
+                            <th>Hora Salida</th>
+                            <th>Tiempo Total</th>
+                            <th>Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {timeRecords
+                            .slice()
+                            .reverse()
+                            .map((record, index) => {
+                              const user = usersData.find((u) => u.uid === record.uid);
+                              const userName = user
+                                ? `${user.nombre_completo} (${user.identificacion})`
+                                : 'Usuario no registrado';
+                              return (
+                                <tr key={record.id}>
+                                  <td>{index + 1}</td>
+                                  <td>{userName}</td>
+                                  <td>{new Date(record.fecha).toLocaleDateString('es-ES')}</td>
+                                  <td>{record.hora_entrada || '-'}</td>
+                                  <td>{record.hora_salida || '-'}</td>
+                                  <td>{record.tiempo_total || '-'}</td>
+                                  <td>{record.estado || '-'}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

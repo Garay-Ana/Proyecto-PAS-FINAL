@@ -29,7 +29,7 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         return;
       }
       try {
-        const res = await fetch('http://localhost:3000/api/gerentes/register', {
+        const res = await fetch('https://proyecto-pas-final.onrender.com/api/gerentes/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nombre_completo, identificacion, correo, telefono, password }),
@@ -63,7 +63,7 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         return;
       }
       try {
-        const res = await fetch('http://localhost:3000/api/gerentes/login', {
+        const res = await fetch('https://proyecto-pas-final.onrender.com/api/gerentes/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ identificacion, password }),

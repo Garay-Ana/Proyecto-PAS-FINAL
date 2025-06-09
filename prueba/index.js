@@ -298,6 +298,56 @@ app.post('/api/gerentes/login', async (req, res) => {
   }
 });
 
+// Rutas para la tabla tiempos
+
+// Obtener todos los registros de tiempos
+app.get('/api/tiempos', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM tiempos ORDER BY entrada DESC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener tiempos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Procesar entrada o salida
+app.post('/api/tiempos/process', async (req, res) => {
+  const { uid, timestamp } = req.body;
+  if (!uid || !timestamp) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios: uid y timestamp' });
+  }
+  try {
+    // Buscar registro abierto (sin salida) para el uid
+    const [openRecords] = await pool.query(
+      'SELECT * FROM tiempos WHERE uid = ? AND salida IS NULL ORDER BY entrada DESC LIMIT 1',
+      [uid]
+    );
+
+    if (openRecords.length === 0) {
+      // No hay registro abierto, insertar nuevo con entrada = timestamp
+      const [result] = await pool.query(
+        'INSERT INTO tiempos (uid, entrada, salida) VALUES (?, ?, NULL)',
+        [uid, timestamp]
+      );
+      const [newRecord] = await pool.query('SELECT * FROM tiempos WHERE id = ?', [result.insertId]);
+      res.status(201).json(newRecord[0]);
+    } else {
+      // Hay registro abierto, actualizar salida con timestamp
+      const openRecord = openRecords[0];
+      await pool.query(
+        'UPDATE tiempos SET salida = ? WHERE id = ?',
+        [timestamp, openRecord.id]
+      );
+      const [updatedRecord] = await pool.query('SELECT * FROM tiempos WHERE id = ?', [openRecord.id]);
+      res.json(updatedRecord[0]);
+    }
+  } catch (error) {
+    console.error('Error al procesar tiempos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });
