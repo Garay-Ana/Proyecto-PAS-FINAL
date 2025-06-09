@@ -348,6 +348,63 @@ app.post('/api/tiempos/process', async (req, res) => {
   }
 });
 
+// Endpoints para gestión de horarios
+
+// Obtener horarios por empleado
+app.get('/api/horarios/:empleado_id', async (req, res) => {
+  const { empleado_id } = req.params;
+  try {
+    const [rows] = await pool.query('SELECT * FROM horario WHERE empleado_id = ?', [empleado_id]);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener horarios:', error);
+    res.status(500).json({ error: 'Error al obtener horarios' });
+  }
+});
+
+// Crear nuevo horario
+app.post('/api/horarios', async (req, res) => {
+  const { empleado_id, tipo_empleado, dia, hora_inicio, hora_fin } = req.body;
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO horario (empleado_id, tipo_empleado, dia, hora_inicio, hora_fin, creado_en) VALUES (?, ?, ?, ?, ?, NOW())',
+      [empleado_id, tipo_empleado, dia, hora_inicio, hora_fin]
+    );
+    res.status(201).json({ id: result.insertId, empleado_id, tipo_empleado, dia, hora_inicio, hora_fin });
+  } catch (error) {
+    console.error('Error al crear horario:', error);
+    res.status(500).json({ error: 'Error al crear horario' });
+  }
+});
+
+// Editar horario
+app.put('/api/horarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { empleado_id, tipo_empleado, dia, hora_inicio, hora_fin } = req.body;
+  try {
+    await pool.query(
+      'UPDATE horario SET empleado_id = ?, tipo_empleado = ?, dia = ?, hora_inicio = ?, hora_fin = ? WHERE id = ?',
+      [empleado_id, tipo_empleado, dia, hora_inicio, hora_fin, id]
+    );
+    res.json({ id, empleado_id, tipo_empleado, dia, hora_inicio, hora_fin });
+  } catch (error) {
+    console.error('Error al actualizar horario:', error);
+    res.status(500).json({ error: 'Error al actualizar horario' });
+  }
+});
+
+// Eliminar horario
+app.delete('/api/horarios/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM horario WHERE id = ?', [id]);
+    res.json({ message: 'Horario eliminado' });
+  } catch (error) {
+    console.error('Error al eliminar horario:', error);
+    res.status(500).json({ error: 'Error al eliminar horario' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });

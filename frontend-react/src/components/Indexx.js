@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './indexx.css';
 
 const API_URL = 'https://pruepas.onrender.com/api/historial';
-const USERS_API_URL = 'https://pruepas.onrender.com/api/usuarios';
-const ACCESS_API_URL = 'https://pruepas.onrender.com/api/accesos';
-const TIME_API_URL = 'https://pruepas.onrender.com/api/tiempos';
+const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
+const ACCESS_API_URL = 'https://proyecto-pas-final.onrender.com/api/accesos';
+const TIME_API_URL = 'https://proyecto-pas-final.onrender.com/api/tiempos';
 
 const Indexx = () => {
   const [historialData, setHistorialData] = useState([]);

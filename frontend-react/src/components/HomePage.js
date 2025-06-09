@@ -21,7 +21,7 @@ function HomePage() {
           </Link>
           <Link to="/dashboard">
             <button className="w-full bg-gray-700 hover:bg-gray-800 text-white py-3 rounded-xl font-medium transition">
-              Ver Dashboard
+              Historial
             </button>
           </Link>
         </div>
