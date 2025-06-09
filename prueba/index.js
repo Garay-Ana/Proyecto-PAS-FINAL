@@ -247,9 +247,6 @@ app.post('/api/asignar-tarjeta', async (req, res) => {
 
 const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
 
-
-const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
-
 // Registro de gerente
 app.post('/api/gerentes/register', async (req, res) => {
   const { identificacion, nombre_completo, correo, telefono, password } = req.body;
