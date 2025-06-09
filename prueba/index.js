@@ -248,59 +248,6 @@ app.post('/api/asignar-tarjeta', async (req, res) => {
 const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
 
 
-const jwt = require('jsonwebtoken'); // Optional: for token generation if needed
-
-// Registro de gerente
-app.post('/api/gerentes/register', async (req, res) => {
-  const { identificacion, nombre_completo, correo, telefono, password } = req.body;
-  if (!identificacion || !nombre_completo || !password) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios' });
-  }
-  try {
-    // Verificar si la identificación ya existe
-    const [existingIdent] = await pool.query('SELECT identificacion FROM gerentes WHERE identificacion = ?', [identificacion]);
-    if (existingIdent.length > 0) {
-      return res.status(409).json({ error: 'La identificación ya está registrada' });
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await pool.query(
-      'INSERT INTO gerentes (identificacion, nombre_completo, correo, telefono, password) VALUES (?, ?, ?, ?, ?)',
-      [identificacion, nombre_completo, correo || null, telefono || null, hashedPassword]
-    );
-    res.status(201).json({ message: 'Gerente registrado correctamente' });
-  } catch (error) {
-    console.error('Error al registrar gerente:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Login de gerente
-app.post('/api/gerentes/login', async (req, res) => {
-  const { identificacion, password } = req.body;
-  if (!identificacion || !password) {
-    return res.status(400).json({ error: 'Identificación y contraseña son obligatorios' });
-  }
-  try {
-    const [rows] = await pool.query(
-      'SELECT id, identificacion, nombre_completo, correo, telefono, password FROM gerentes WHERE identificacion = ?',
-      [identificacion]
-    );
-    if (rows.length === 0) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-    const user = rows[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-    delete user.password;
-    res.json({ message: 'Login exitoso', gerente: user });
-  } catch (error) {
-    console.error('Error en login gerente:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });

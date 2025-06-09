@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-const GERENTE_API_URL = 'https://proyecto-pas-final.onrender.com/api/gerentes';
 
 const GerenteAuth = ({ onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
