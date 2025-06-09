@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 
-
 const GerenteAuth = ({ onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({
-    identificacion: '',
     nombre_completo: '',
+    identificacion: '',
     correo: '',
     telefono: '',
     password: '',
@@ -22,39 +21,41 @@ const GerenteAuth = ({ onLoginSuccess }) => {
     e.preventDefault();
     setMessage('');
     if (isRegister) {
-      // Registration
-      const { identificacion, nombre_completo, password } = form;
-      if (!identificacion || !nombre_completo || !password) {
+      // Registration logic with API
+      const { nombre_completo, identificacion, correo, telefono, password } = form;
+      if (!nombre_completo || !identificacion || !password) {
         setMessage('Por favor complete los campos obligatorios (*)');
         setMessageType('error');
         return;
       }
       try {
-        const res = await fetch(`${GERENTE_API_URL}/register`, {
+        const res = await fetch('http://localhost:3000/api/gerentes/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ nombre_completo, identificacion, correo, telefono, password }),
         });
+        const data = await res.json();
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'Error al registrar gerente');
+          setMessage(data.error || 'Error en el registro');
+          setMessageType('error');
+          return;
         }
         setMessage('Registro exitoso. Por favor inicie sesión.');
         setMessageType('success');
         setIsRegister(false);
         setForm({
-          identificacion: '',
           nombre_completo: '',
+          identificacion: '',
           correo: '',
           telefono: '',
           password: '',
         });
       } catch (error) {
-        setMessage(`Error al registrar gerente: ${error.message}`);
+        setMessage('Error de conexión al registrar');
         setMessageType('error');
       }
     } else {
-      // Login
+      // Login logic with API
       const { identificacion, password } = form;
       if (!identificacion || !password) {
         setMessage('Por favor complete los campos obligatorios (*)');
@@ -62,20 +63,22 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         return;
       }
       try {
-        const res = await fetch(`${GERENTE_API_URL}/login`, {
+        const res = await fetch('http://localhost:3000/api/gerentes/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ identificacion, password }),
         });
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || 'Error al iniciar sesión');
-        }
         const data = await res.json();
-        // Assuming the response contains a token or user info
-        onLoginSuccess(data);
+        if (!res.ok) {
+          setMessage(data.error || 'Credenciales inválidas');
+          setMessageType('error');
+          return;
+        }
+        setMessage('');
+        setMessageType('');
+        onLoginSuccess(data.gerente);
       } catch (error) {
-        setMessage(`Error al iniciar sesión: ${error.message}`);
+        setMessage('Error de conexión al iniciar sesión');
         setMessageType('error');
       }
     }
@@ -95,15 +98,6 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="text"
-            name="identificacion"
-            placeholder="Identificación *"
-            value={form.identificacion}
-            onChange={handleChange}
-            className="form-control"
-            required
-          />
           {isRegister && (
             <input
               type="text"
@@ -116,10 +110,10 @@ const GerenteAuth = ({ onLoginSuccess }) => {
             />
           )}
           <input
-            type="password"
-            name="password"
-            placeholder="Contraseña *"
-            value={form.password}
+            type="text"
+            name="identificacion"
+            placeholder="Identificación *"
+            value={form.identificacion}
             onChange={handleChange}
             className="form-control"
             required
@@ -144,6 +138,15 @@ const GerenteAuth = ({ onLoginSuccess }) => {
               />
             </>
           )}
+          <input
+            type="password"
+            name="password"
+            placeholder="Contraseña *"
+            value={form.password}
+            onChange={handleChange}
+            className="form-control"
+            required
+          />
           <button type="submit" className="btn btn-primary">
             {isRegister ? 'Registrar' : 'Iniciar Sesión'}
           </button>
@@ -151,6 +154,7 @@ const GerenteAuth = ({ onLoginSuccess }) => {
 
         <button
           className="mt-4 text-blue-600 hover:underline"
+          type="button"
           onClick={() => {
             setMessage('');
             setMessageType('');
