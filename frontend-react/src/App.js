@@ -7,6 +7,7 @@ import Indexx from './components/Indexx';
 import GerenteAuth from './components/GerenteAuth';
 import GestionHorariosContainer from './components/GestionHorariosContainer';
 import GestionUsuarios from './components/GestionUsuarios';
+import LoginSelector from './components/LoginSelector';
 
 function App() {
   const [gerenteLoggedIn, setGerenteLoggedIn] = useState(false);
@@ -25,10 +26,6 @@ function App() {
     navigate('/');
   };
 
-  if (!gerenteLoggedIn) {
-    return <GerenteAuth onLoginSuccess={handleLoginSuccess} />;
-  }
-
   const handleLogout = () => {
     setGerenteLoggedIn(false);
     localStorage.removeItem('token');
@@ -37,7 +34,8 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<HomePage onLogout={handleLogout} />} />
+      <Route path="/" element={<LoginSelector />} />
+      <Route path="/gerente-login" element={<GerenteAuth onLoginSuccess={handleLoginSuccess} />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/remoto" element={<RemotoPage />} />
       <Route path="/indexx" element={<Indexx />} />

@@ -16,11 +16,13 @@ function HomePage({ onLogout }) {
           Seleccione una opción
         </h1>
         <div className="flex flex-col gap-4">
+          {/*
           <Link to="/remoto">
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition">
               Remoto
             </button>
           </Link>
+          */}
           <Link to="/indexx">
             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition">
               Físico
