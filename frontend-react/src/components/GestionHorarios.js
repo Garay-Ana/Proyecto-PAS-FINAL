@@ -1,22 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
+
+const API_BASE_URL = "https://proyecto-pas-final.onrender.com/api/horarios";
 
 const GestionHorarios = ({ usuarios }) => {
-  const [selectedUsuario, setSelectedUsuario] = useState('');
+  const [selectedUsuario, setSelectedUsuario] = useState("");
   const [horarios, setHorarios] = useState([]);
   const [form, setForm] = useState({
     id: null,
-    dia: '',
-    hora_inicio: '',
-    hora_fin: '',
+    dia: "",
+    hora_inicio: "",
+    hora_fin: "",
   });
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (selectedUsuario) {
-      fetch(`/api/horarios/${selectedUsuario}`)
+      fetch(`${API_BASE_URL}/api/horarios/${selectedUsuario}`)
         .then((res) => res.json())
         .then((data) => setHorarios(data))
-        .catch(() => setMessage('Error al cargar horarios'));
+        .catch(() => setMessage("Error al cargar horarios"));
     } else {
       setHorarios([]);
     }
@@ -29,19 +31,19 @@ const GestionHorarios = ({ usuarios }) => {
 
   const handleSelectUsuario = (e) => {
     setSelectedUsuario(e.target.value);
-    setForm({ id: null, dia: '', hora_inicio: '', hora_fin: '' });
-    setMessage('');
+    setForm({ id: null, dia: "", hora_inicio: "", hora_fin: "" });
+    setMessage("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedUsuario) {
-      setMessage('Seleccione un usuario');
+      setMessage("Seleccione un usuario");
       return;
     }
     const payload = {
       empleado_id: selectedUsuario,
-      tipo_empleado: 'usuario', // o 'gerente' si aplica
+      tipo_empleado: "usuario", // o 'gerente' si aplica
       dia: form.dia,
       hora_inicio: form.hora_inicio,
       hora_fin: form.hora_fin,
@@ -49,27 +51,27 @@ const GestionHorarios = ({ usuarios }) => {
     try {
       let res;
       if (form.id) {
-        res = await fetch(`/api/horarios/${form.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+        res = await fetch(`${API_BASE_URL}/api/horarios/${form.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch('/api/horarios', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        res = await fetch(`${API_BASE_URL}/api/horarios`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
       }
-      if (!res.ok) throw new Error('Error en la respuesta');
-      setMessage('Horario guardado correctamente');
-      setForm({ id: null, dia: '', hora_inicio: '', hora_fin: '' });
+      if (!res.ok) throw new Error("Error en la respuesta");
+      setMessage("Horario guardado correctamente");
+      setForm({ id: null, dia: "", hora_inicio: "", hora_fin: "" });
       // Recargar horarios
-      const horariosRes = await fetch(`/api/horarios/${selectedUsuario}`);
+      const horariosRes = await fetch(`${API_BASE_URL}/api/horarios/${selectedUsuario}`);
       const horariosData = await horariosRes.json();
       setHorarios(horariosData);
     } catch {
-      setMessage('Error al guardar horario');
+      setMessage("Error al guardar horario");
     }
   };
 
@@ -80,21 +82,21 @@ const GestionHorarios = ({ usuarios }) => {
       hora_inicio: horario.hora_inicio,
       hora_fin: horario.hora_fin,
     });
-    setMessage('');
+    setMessage("");
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar este horario?')) return;
+    if (!window.confirm("¿Está seguro de eliminar este horario?")) return;
     try {
-      const res = await fetch(`/api/horarios/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Error en la respuesta');
-      setMessage('Horario eliminado');
+      const res = await fetch(`${API_BASE_URL}/api/horarios/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error en la respuesta");
+      setMessage("Horario eliminado");
       // Recargar horarios
-      const horariosRes = await fetch(`/api/horarios/${selectedUsuario}`);
+      const horariosRes = await fetch(`${API_BASE_URL}/api/horarios/${selectedUsuario}`);
       const horariosData = await horariosRes.json();
       setHorarios(horariosData);
     } catch {
-      setMessage('Error al eliminar horario');
+      setMessage("Error al eliminar horario");
     }
   };
 
@@ -147,7 +149,7 @@ const GestionHorarios = ({ usuarios }) => {
                 required
               />
             </div>
-            <button type="submit">{form.id ? 'Actualizar' : 'Agregar'} Horario</button>
+            <button type="submit">{form.id ? "Actualizar" : "Agregar"} Horario</button>
           </form>
 
           {message && <p className="message">{message}</p>}

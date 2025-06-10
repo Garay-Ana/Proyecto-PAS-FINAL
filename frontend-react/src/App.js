@@ -5,6 +5,8 @@ import Dashboard from './components/Dashboard';
 import RemotoPage from './components/RemotoPage';
 import Indexx from './components/Indexx';
 import GerenteAuth from './components/GerenteAuth';
+import GestionHorarios from './components/GestionHorarios';
+import GestionUsuarios from './components/GestionUsuarios';
 
 function App() {
   const [gerenteLoggedIn, setGerenteLoggedIn] = useState(false);
@@ -24,6 +26,8 @@ function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/remoto" element={<RemotoPage />} />
       <Route path="/indexx" element={<Indexx />} />
+      <Route path="/gestion-horarios" element={<GestionHorarios usuarios={[]} />} />
+      <Route path="/gestion-usuarios" element={<GestionUsuarios />} />
     </Routes>
   );
 }

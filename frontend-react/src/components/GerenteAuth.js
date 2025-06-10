@@ -4,7 +4,6 @@ const GerenteAuth = ({ onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({
     nombre_completo: '',
-    identificacion: '',
     correo: '',
     telefono: '',
     password: '',
@@ -56,8 +55,8 @@ const GerenteAuth = ({ onLoginSuccess }) => {
       }
     } else {
       // Login logic with API
-      const { identificacion, password } = form;
-      if (!identificacion || !password) {
+      const { nombre_completo, password } = form;
+      if (!nombre_completo || !password) {
         setMessage('Por favor complete los campos obligatorios (*)');
         setMessageType('error');
         return;
@@ -66,7 +65,7 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         const res = await fetch('https://proyecto-pas-final.onrender.com/api/gerentes/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identificacion, password }),
+          body: JSON.stringify({ nombre_completo, password }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -111,9 +110,9 @@ const GerenteAuth = ({ onLoginSuccess }) => {
           )}
           <input
             type="text"
-            name="identificacion"
-            placeholder="Identificación *"
-            value={form.identificacion}
+            name="nombre_completo"
+            placeholder="Nombre Completo *"
+            value={form.nombre_completo}
             onChange={handleChange}
             className="form-control"
             required
