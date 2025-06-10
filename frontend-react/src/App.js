@@ -9,6 +9,7 @@ import GestionHorariosContainer from './components/GestionHorariosContainer';
 import GestionUsuarios from './components/GestionUsuarios';
 import LoginSelector from './components/LoginSelector';
 import PrivateRoute from './components/PrivateRoute';
+import ControlHorarios from './components/ControlHorarios';
 
 function App() {
   const [gerenteLoggedIn, setGerenteLoggedIn] = useState(false);
@@ -24,13 +25,13 @@ function App() {
   const handleLoginSuccess = (data, token) => {
     localStorage.setItem('token', token);
     setGerenteLoggedIn(true);
-    navigate('/', { replace: true });
+    navigate('/home', { replace: true });
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setGerenteLoggedIn(false);
-    navigate('/login-selector');
+    navigate('/');
   };
 
   return (
@@ -71,10 +72,10 @@ function App() {
         }
       />
       <Route
-        path="/gestion-usuarios"
+        path="/control-horarios"
         element={
           <PrivateRoute>
-            <GestionUsuarios />
+            <ControlHorarios />
           </PrivateRoute>
         }
       />

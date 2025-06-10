@@ -1,9 +1,0 @@
-CREATE TABLE IF NOT EXISTS gerentes (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  identificacion VARCHAR(50) NOT NULL UNIQUE,
-  nombre_completo VARCHAR(100) NOT NULL,
-  correo VARCHAR(100),
-  telefono VARCHAR(20),
-  password VARCHAR(255) NOT NULL,
-  fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
