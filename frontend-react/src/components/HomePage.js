@@ -33,7 +33,7 @@ function HomePage({ onLogout }) {
               Historial
             </button>
           </Link>
-          <Link to="/gestion-horarios">
+          <Link to="/control-horarios">
             <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium transition">
               Horario
             </button>

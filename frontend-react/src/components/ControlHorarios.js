@@ -1,17 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import './ControlHorarios.css';
 
 const API_URL = 'https://proyecto-pas-final.onrender.com/api/control-horarios';
+const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
+const REMOTE_EMPLOYEES_API_URL = 'https://proyecto-pas-final.onrender.com/api/empleados-remotos';
 
 const ControlHorarios = () => {
+  const navigate = useNavigate();
   const [horarios, setHorarios] = useState([]);
+  const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     empleado_id: '',
+    tipo_empleado: 'usuario',
     fecha: '',
     hora_entrada: '',
     hora_salida: '',
   });
+  const [editId, setEditId] = useState(null);
 
   const fetchHorarios = async () => {
     setLoading(true);
@@ -27,13 +35,40 @@ const ControlHorarios = () => {
     }
   };
 
+  const fetchEmpleados = async () => {
+    try {
+      const [usuariosRes, remotosRes] = await Promise.all([
+        fetch(USERS_API_URL),
+        fetch(REMOTE_EMPLOYEES_API_URL),
+      ]);
+      if (!usuariosRes.ok) throw new Error('Error al cargar usuarios');
+      if (!remotosRes.ok) throw new Error('Error al cargar empleados remotos');
+      const usuariosData = await usuariosRes.json();
+      const remotosData = await remotosRes.json();
+      // Agregar tipo_empleado a cada empleado
+      const usuariosConTipo = usuariosData.map((u) => ({ ...u, tipo_empleado: 'usuario' }));
+      const remotosConTipo = remotosData.map((r) => ({ ...r, tipo_empleado: 'remoto' }));
+      const combinedEmpleados = [...usuariosConTipo, ...remotosConTipo];
+      setEmpleados(combinedEmpleados);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   useEffect(() => {
     fetchHorarios();
+    fetchEmpleados();
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'empleado_id') {
+      // value tiene formato "id::tipo_empleado"
+      const [id, tipo] = value.split('::');
+      setForm((prev) => ({ ...prev, empleado_id: id, tipo_empleado: tipo }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const calcularDuracion = (entrada, salida) => {
@@ -50,13 +85,49 @@ const ControlHorarios = () => {
     e.preventDefault();
     const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
     try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, duracion }),
+      let res;
+      if (editId) {
+        // Editar horario existente
+        res = await fetch(`${API_URL}/${editId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, duracion }),
+        });
+      } else {
+        // Añadir nuevo horario
+        res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, duracion }),
+        });
+      }
+      if (!res.ok) throw new Error('Error al guardar horario');
+      setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
+      setEditId(null);
+      fetchHorarios();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleEdit = (horario) => {
+    setForm({
+      empleado_id: horario.empleado_id,
+      tipo_empleado: horario.tipo_empleado || 'usuario',
+      fecha: new Date(horario.fecha).toISOString().split('T')[0],
+      hora_entrada: horario.hora_entrada,
+      hora_salida: horario.hora_salida,
+    });
+    setEditId(horario.id);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar este horario?')) return;
+    try {
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
       });
-      if (!res.ok) throw new Error('Error al registrar horario');
-      setForm({ empleado_id: '', fecha: '', hora_entrada: '', hora_salida: '' });
+      if (!res.ok) throw new Error('Error al eliminar horario');
       fetchHorarios();
     } catch (err) {
       setError(err.message);
@@ -64,13 +135,16 @@ const ControlHorarios = () => {
   };
 
   return (
-    <div className="control-horarios-container" style={{ padding: '1rem' }}>
+    <div className="control-horarios-container">
+      <button className="back-button" onClick={() => navigate('/home')}>
+        ← Volver a Home
+      </button>
       <h2>Control Horario</h2>
-      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+      {error && <p className="error-message">Error: {error}</p>}
       {loading ? (
         <p>Cargando horarios...</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table>
           <thead>
             <tr>
               <th>Nombre</th>
@@ -78,32 +152,43 @@ const ControlHorarios = () => {
               <th>Hora entrada</th>
               <th>Hora salida</th>
               <th>Duración</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {horarios.map((h) => (
-              <tr key={h.id} style={{ borderBottom: '1px solid #ccc' }}>
+              <tr key={h.id}>
                 <td>{h.nombre_completo}</td>
-                <td>{new Date(h.fecha).toLocaleDateString('es-ES')}</td>
+<td>{new Date(h.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
                 <td>{h.hora_entrada}</td>
                 <td>{h.hora_salida}</td>
                 <td>{h.duracion}</td>
+                <td>
+                  <button onClick={() => handleEdit(h)} className="btn-edit">Editar</button>
+                  <button onClick={() => handleDelete(h.id)} className="btn-delete">Eliminar</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
 
-      <h3>Registrar Horas</h3>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '400px' }}>
-        <input
-          type="text"
+      <h3>{editId ? 'Editar Horario' : 'Registrar Horas'}</h3>
+      <form onSubmit={handleSubmit} className="control-horarios-form">
+        <select
           name="empleado_id"
-          placeholder="ID Empleado"
           value={form.empleado_id}
           onChange={handleChange}
           required
-        />
+          disabled={!!editId}
+        >
+          <option value="" disabled>Seleccione un empleado</option>
+          {empleados.map((emp) => (
+        <option key={emp.id || emp.uid} value={`${emp.id || emp.uid}::${emp.tipo_empleado}`}>
+          {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
+        </option>
+          ))}
+        </select>
         <input
           type="date"
           name="fecha"
@@ -125,12 +210,24 @@ const ControlHorarios = () => {
           onChange={handleChange}
           required
         />
-        <button type="submit" style={{ padding: '0.5rem', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Añadir fichaje
+        <button type="submit" className="control-horarios-submit">
+          {editId ? 'Guardar cambios' : 'Añadir fichaje'}
         </button>
+        {editId && (
+          <button
+            type="button"
+            className="control-horarios-cancel"
+            onClick={() => {
+              setForm({ empleado_id: '', fecha: '', hora_entrada: '', hora_salida: '' });
+              setEditId(null);
+              setError('');
+            }}
+          >
+            Cancelar
+          </button>
+        )}
       </form>
     </div>
   );
 };
-
 export default ControlHorarios;

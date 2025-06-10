@@ -1,0 +1,98 @@
+.control-horarios-container {
+  padding: 2rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #2c3e50;
+  background-color: #f4f6f9;
+  min-height: 100vh;
+}
+
+.control-horarios-container h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  color: #1f2d3d;
+  border-bottom: 2px solid #ccc;
+  padding-bottom: 0.5rem;
+}
+
+.control-horarios-container table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+}
+
+
+.control-horarios-container td {
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.control-horarios-container th {
+  background-color:rgb(149, 169, 198); /* Fondo gris claro */
+  color: #2c3e50;            /* Texto gris oscuro */
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 1rem;
+  border-bottom: 1px solid #d1d5db;
+  text-align: center;
+}
+
+
+.control-horarios-container tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.control-horarios-container form {
+  max-width: 600px;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.control-horarios-container select,
+.control-horarios-container input[type="text"],
+.control-horarios-container input[type="date"],
+.control-horarios-container input[type="time"] {
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #f9fafb;
+  color: #1f2937;
+  transition: border-color 0.3s ease;
+}
+
+.control-horarios-container input:focus,
+.control-horarios-container select:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+.control-horarios-container button {
+  padding: 0.75rem;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.control-horarios-container button:hover {
+  background-color: #1d4ed8;
+}
