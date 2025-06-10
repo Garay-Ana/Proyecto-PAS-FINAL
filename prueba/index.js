@@ -65,6 +65,16 @@ app.post('/api/empleados-remotos', async (req, res) => {
   }
 });
 
+app.get('/api/empleados-remotos', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM empleados_remotos');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener empleados remotos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.post('/api/login', async (req, res) => {
   const { correo, contraseña } = req.body;
   if (!correo || !contraseña) {

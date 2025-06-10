@@ -1,0 +1,70 @@
+.gestion-horarios-calendario {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.calendario-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.calendario-table th,
+.calendario-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+.calendario-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+.usuario-nombre {
+  text-align: left;
+  font-weight: bold;
+  width: 180px;
+  white-space: normal;
+}
+
+.usuario-rol {
+  font-size: 0.8em;
+  color: #666;
+}
+
+.bloque-horario {
+  background-color: #4a90e2;
+  color: white;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.bloque-horario.oficina {
+  background-color: #4a90e2;
+}
+
+.bloque-horario.turno-manana {
+  background-color: #50e3c2;
+}
+
+.bloque-horario.turno-tarde {
+  background-color: #f5a623;
+}
+
+.bloque-descanso {
+  color: #999;
+  font-style: italic;
+  font-size: 0.85em;
+}
+
+.turno-nombre {
+  font-weight: bold;
+}
+
+.horario-horas {
+  font-size: 0.8em;
+}

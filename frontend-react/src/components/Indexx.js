@@ -355,12 +355,14 @@ const Indexx = () => {
       </div>
 
       <div className="tabs">
+        {/*
         <div
           className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => handleTabClick('dashboard')}
         >
           Dashboard
         </div>
+        */}
         <div
           className={`tab ${activeTab === 'usuarios' ? 'active' : ''}`}
           onClick={() => handleTabClick('usuarios')}
@@ -381,6 +383,7 @@ const Indexx = () => {
         </div>
       </div>
 
+      {/*
       {activeTab === 'dashboard' && (
         <div className="tab-content active" id="dashboard">
           <div className="stats-container">
@@ -490,6 +493,7 @@ const Indexx = () => {
           </div>
         </div>
       )}
+      */}
 
       {activeTab === 'usuarios' && (
         <div className="tab-content active" id="usuarios">
