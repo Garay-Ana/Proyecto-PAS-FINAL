@@ -76,7 +76,9 @@ const GerenteAuth = ({ onLoginSuccess }) => {
         }
         setMessage('');
         setMessageType('');
-        onLoginSuccess(data.gerente);
+        console.log('GerenteAuth login token:', data.token);
+        localStorage.setItem('token', data.token);  // Guardar token JWT en localStorage
+        onLoginSuccess(data.gerente, data.token);
       } catch (error) {
         setMessage('Error de conexión al iniciar sesión');
         setMessageType('error');

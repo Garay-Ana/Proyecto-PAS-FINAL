@@ -8,6 +8,7 @@ import GerenteAuth from './components/GerenteAuth';
 import GestionHorariosContainer from './components/GestionHorariosContainer';
 import GestionUsuarios from './components/GestionUsuarios';
 import LoginSelector from './components/LoginSelector';
+import PrivateRoute from './components/PrivateRoute';
 
 function App() {
   const [gerenteLoggedIn, setGerenteLoggedIn] = useState(false);
@@ -21,26 +22,62 @@ function App() {
   }, []);
 
   const handleLoginSuccess = (data, token) => {
-    setGerenteLoggedIn(true);
     localStorage.setItem('token', token);
-    navigate('/');
+    setGerenteLoggedIn(true);
+    navigate('/', { replace: true });
   };
 
   const handleLogout = () => {
-    setGerenteLoggedIn(false);
     localStorage.removeItem('token');
-    navigate('/');
+    setGerenteLoggedIn(false);
+    navigate('/login-selector');
   };
 
   return (
     <Routes>
       <Route path="/" element={<LoginSelector />} />
+      <Route
+        path="/home"
+        element={
+          <PrivateRoute>
+            <HomePage onLogout={handleLogout} />
+          </PrivateRoute>
+        }
+      />
       <Route path="/gerente-login" element={<GerenteAuth onLoginSuccess={handleLoginSuccess} />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route
+        path="/dashboard"
+        element={
+          <PrivateRoute>
+            <Dashboard />
+          </PrivateRoute>
+        }
+      />
       <Route path="/remoto" element={<RemotoPage />} />
-      <Route path="/indexx" element={<Indexx />} />
-      <Route path="/gestion-horarios" element={<GestionHorariosContainer />} />
-      <Route path="/gestion-usuarios" element={<GestionUsuarios />} />
+      <Route
+        path="/indexx"
+        element={
+          <PrivateRoute>
+            <Indexx />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/gestion-horarios"
+        element={
+          <PrivateRoute>
+            <GestionHorariosContainer />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/gestion-usuarios"
+        element={
+          <PrivateRoute>
+            <GestionUsuarios />
+          </PrivateRoute>
+        }
+      />
     </Routes>
   );
 }
