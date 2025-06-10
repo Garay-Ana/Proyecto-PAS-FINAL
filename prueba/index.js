@@ -273,14 +273,14 @@ app.post('/api/gerentes/register', async (req, res) => {
 
 // Login de gerente
 app.post('/api/gerentes/login', async (req, res) => {
-  const { nombre_completo, password } = req.body;
-  if (!nombre_completo || !password) {
-    return res.status(400).json({ error: 'Nombre completo y contraseña son obligatorios' });
+  const { identificacion, password } = req.body;
+  if (!identificacion || !password) {
+    return res.status(400).json({ error: 'Identificación y contraseña son obligatorios' });
   }
   try {
     const [rows] = await pool.query(
-      'SELECT id, identificacion, nombre_completo, correo, telefono, password FROM gerentes WHERE nombre_completo = ?',
-      [nombre_completo]
+      'SELECT id, identificacion, nombre_completo, correo, telefono, password FROM gerentes WHERE identificacion = ?',
+      [identificacion]
     );
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Credenciales inválidas' });

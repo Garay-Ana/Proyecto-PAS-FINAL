@@ -14,6 +14,8 @@ function App() {
   const handleLoginSuccess = (data) => {
     // You can store token or user info here if needed
     setGerenteLoggedIn(true);
+    // Redirigir a la página principal después del login
+    window.location.href = '/';
   };
 
   if (!gerenteLoggedIn) {
