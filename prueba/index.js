@@ -271,7 +271,7 @@ app.post('/api/gerentes/register', async (req, res) => {
   }
 });
 
-// Login de gerente
+// Login de gerente con JWT
 app.post('/api/gerentes/login', async (req, res) => {
   const { identificacion, password } = req.body;
   if (!identificacion || !password) {
@@ -291,7 +291,9 @@ app.post('/api/gerentes/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     delete user.password;
-    res.json({ message: 'Login exitoso', gerente: user });
+    // Generar token JWT
+    const token = jwt.sign({ id: user.id, identificacion: user.identificacion }, 'secret_key', { expiresIn: '1h' });
+    res.json({ message: 'Login exitoso', gerente: user, token });
   } catch (error) {
     console.error('Error en login gerente:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

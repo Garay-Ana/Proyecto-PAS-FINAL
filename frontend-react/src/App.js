@@ -22,9 +22,13 @@ function App() {
     return <GerenteAuth onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const handleLogout = () => {
+    setGerenteLoggedIn(false);
+  };
+
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
+      <Route path="/" element={<HomePage onLogout={handleLogout} />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/remoto" element={<RemotoPage />} />
       <Route path="/indexx" element={<Indexx />} />

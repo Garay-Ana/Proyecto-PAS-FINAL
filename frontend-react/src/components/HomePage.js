@@ -1,10 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-function HomePage() {
+function HomePage({ onLogout }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-10 text-center w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-lg p-10 text-center w-full max-w-md relative">
+        <button
+          onClick={onLogout}
+          style={{ position: 'absolute', top: 10, right: 10 }}
+          className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
+        >
+          Cerrar Sesión
+        </button>
         <h1 className="text-2xl font-bold text-gray-800 mb-8">
           Seleccione una opción
         </h1>
