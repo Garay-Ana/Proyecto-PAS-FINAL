@@ -405,6 +405,16 @@ app.delete('/api/horarios/:id', async (req, res) => {
   }
 });
 
+app.get('/api/gerentes', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, identificacion, nombre_completo, correo, telefono FROM gerentes');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener gerentes:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });
