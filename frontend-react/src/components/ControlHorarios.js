@@ -27,7 +27,23 @@ const ControlHorarios = () => {
       const res = await fetch(API_URL);
       if (!res.ok) throw new Error('Error al cargar horarios');
       const data = await res.json();
-      setHorarios(data);
+
+      // Mapear nombre_completo en cada horario usando empleados
+      const dataConNombres = data.map((horario) => {
+        const empleado = empleados.find(
+          (emp) =>
+            (emp.id === horario.empleado_id || emp.uid === horario.empleado_id) &&
+            emp.tipo_empleado === horario.tipo_empleado
+        );
+        return {
+          ...horario,
+          nombre_completo: empleado
+            ? empleado.nombre_completo || empleado.nombre || empleado.nombre_usuario || ''
+            : '',
+        };
+      });
+
+      setHorarios(dataConNombres);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -177,10 +193,11 @@ const ControlHorarios = () => {
       <form onSubmit={handleSubmit} className="control-horarios-form">
         <select
           name="empleado_id"
-          value={form.empleado_id}
+          value={`${form.empleado_id}::${form.tipo_empleado}`}
           onChange={handleChange}
           required
-          disabled={!!editId}
+          // Permitimos cambiar empleado en edición para evitar cuelgues
+          disabled={false}
         >
           <option value="" disabled>Seleccione un empleado</option>
           {empleados.map((emp) => (
