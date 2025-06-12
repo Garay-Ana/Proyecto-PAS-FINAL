@@ -94,6 +94,7 @@ const ControlHorarios = () => {
     if (name === 'empleado_id') {
       // value tiene formato "id::tipo_empleado"
       const [id, tipo] = value.split('::');
+      console.log('handleChange empleado_id:', id, 'tipo_empleado:', tipo);
       setForm((prev) => ({ ...prev, empleado_id: id, tipo_empleado: tipo }));
     } else if (name === 'searchId') {
       setSearchId(value);
@@ -114,23 +115,42 @@ const ControlHorarios = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.empleado_id) {
+      setError('Debe seleccionar un empleado válido antes de guardar.');
+      return;
+    }
+    if (!form.fecha || !form.hora_entrada || !form.hora_salida) {
+      setError('Debe completar fecha, hora de entrada y hora de salida.');
+      return;
+    }
     const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
     try {
-      console.log('Datos a enviar:', { ...form, duracion });
+      // Construir payload explícito
+      let payload = {
+        tipo_empleado: form.tipo_empleado,
+        fecha: form.fecha,
+        hora_entrada: form.hora_entrada,
+        hora_salida: form.hora_salida,
+        duracion: duracion,
+      };
+      if (form.tipo_empleado === 'remoto') {
+        payload.empleado_remoto_id = Number(form.empleado_id);
+      } else {
+        payload.empleado_id = Number(form.empleado_id);
+      }
+      console.log('Payload final a enviar:', payload);
       let res;
       if (editId) {
-        // Editar horario existente
         res = await fetch(`${API_URL}/${editId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...form, duracion }),
+          body: JSON.stringify(payload),
         });
       } else {
-        // Añadir nuevo horario
         res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...form, duracion }),
+          body: JSON.stringify(payload),
         });
       }
       if (!res.ok) throw new Error('Error al guardar horario');
