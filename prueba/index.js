@@ -102,20 +102,62 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.post('/api/registro-entrada', async (req, res) => {
-  const { usuarioId } = req.body;
-  if (!usuarioId) {
-    return res.status(400).json({ error: 'ID de usuario es obligatorio' });
-  }
+app.post('/api/registro-asistencia', async (req, res) => {
+  const { uid, tipo } = req.body; // tipo puede ser 'usuario' o 'remoto'
+  if (!uid || !tipo) return res.status(400).json({ error: 'UID y tipo son requeridos' });
+
   try {
-    const fechaHoraActual = moment().tz('America/Bogota').format('YYYY-MM-DD HH:mm:ss');
-    const [result] = await pool.query(
-      'INSERT INTO entradas_remotos (usuario_id, fecha_hora) VALUES (?, ?)',
-      [usuarioId, fechaHoraActual]
+    // Obtener empleado según el tipo
+    let empleado;
+    if (tipo === 'usuario') {
+      [empleado] = await pool.query('SELECT id FROM usuarios WHERE uid = ?', [uid]);
+    } else if (tipo === 'remoto') {
+      [empleado] = await pool.query('SELECT id FROM empleados_remotos WHERE uid = ?', [uid]);
+    } else {
+      return res.status(400).json({ error: 'Tipo de empleado inválido' });
+    }
+
+    if (empleado.length === 0) {
+      return res.status(404).json({ error: 'Empleado no encontrado' });
+    }
+
+    const empleadoId = empleado[0].id;
+    const now = moment().tz('America/Bogota');
+    const fecha = now.format('YYYY-MM-DD');
+    const hora = now.format('HH:mm:ss');
+
+    // Buscar registro abierto
+    const [openRecord] = await pool.query(
+      `SELECT id FROM control_horarios 
+       WHERE ${tipo === 'usuario' ? 'empleado_id' : 'empleado_remoto_id'} = ? 
+       AND fecha = ? AND hora_salida IS NULL 
+       ORDER BY hora_entrada DESC LIMIT 1`,
+      [empleadoId, fecha]
     );
-    res.status(201).json({ message: 'Entrada registrada', id: result.insertId });
+
+    if (openRecord.length > 0) {
+      // Registrar salida
+      await pool.query(
+        'UPDATE control_horarios SET hora_salida = ?, duración = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
+        [hora, hora, openRecord[0].id]
+      );
+      return res.json({ message: 'Salida registrada', empleadoId, fecha, hora });
+    } else {
+      // Registrar entrada
+      const [result] = await pool.query(
+        'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada) VALUES (?, ?, ?, ?, ?)',
+        [
+          tipo === 'usuario' ? empleadoId : null,
+          tipo === 'remoto' ? empleadoId : null,
+          tipo,
+          fecha,
+          hora
+        ]
+      );
+      return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora });
+    }
   } catch (error) {
-    console.error('Error al registrar entrada:', error);
+    console.error('Error al registrar asistencia:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -367,135 +409,243 @@ app.post('/api/tiempos/process', async (req, res) => {
 
 // Obtener todos los horarios
 app.get('/api/control-horarios', async (req, res) => {
+  const { tipo_empleado, empleado_id, fecha_inicio, fecha_fin } = req.query;
+
   try {
-    const [rows] = await pool.query(`
+    let query = `
       SELECT ch.*, 
-        COALESCE(u.nombre_completo, er.nombre) AS nombre_completo
+        CASE
+          WHEN ch.tipo_empleado = 'usuario' THEN u.nombre_completo
+          WHEN ch.tipo_empleado = 'remoto' THEN CONCAT(er.nombre, ' ', er.apellido)
+        END AS nombre_empleado
       FROM control_horarios ch
       LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
       LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
-      WHERE ch.tipo_empleado IN ('usuario', 'remoto')
-      ORDER BY ch.fecha DESC
-    `);
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // Filtros opcionales
+    if (tipo_empleado) {
+      query += ' AND ch.tipo_empleado = ?';
+      params.push(tipo_empleado);
+    }
+
+    if (empleado_id) {
+      query += ' AND (ch.empleado_id = ? OR ch.empleado_remoto_id = ?)';
+      params.push(empleado_id, empleado_id);
+    }
+
+    if (fecha_inicio && fecha_fin) {
+      query += ' AND ch.fecha BETWEEN ? AND ?';
+      params.push(fecha_inicio, fecha_fin);
+    }
+
+    query += ' ORDER BY ch.fecha DESC, ch.hora_entrada DESC';
+
+    const [rows] = await pool.query(query, params);
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener control de horarios:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      detalle: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
 
 // Crear nuevo horario
 app.post('/api/control-horarios', async (req, res) => {
-  console.log('Payload recibido:', req.body);
-  let { empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion } = req.body;
+  const { empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion } = req.body;
 
-  if (!tipo_empleado || !fecha || !hora_entrada || !hora_salida || !duracion) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios' });
-  }
-
-  if (tipo_empleado === 'usuario' && !empleado_id) {
-    return res.status(400).json({ error: 'Falta empleado_id para tipo usuario' });
-  }
-
-  if (tipo_empleado === 'remoto' && !empleado_remoto_id) {
-    return res.status(400).json({ error: 'Falta empleado_remoto_id para tipo remoto' });
+  // Validaciones mejoradas
+  if (!tipo_empleado || !fecha || !hora_entrada) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios: tipo_empleado, fecha y hora_entrada son requeridos' });
   }
 
   try {
+    // Validar tipo de empleado
     if (tipo_empleado === 'usuario') {
-      empleado_id = Number(empleado_id);
-      if (isNaN(empleado_id)) {
-        return res.status(400).json({ error: 'ID de empleado inválido' });
-      }
+      if (!empleado_id) return res.status(400).json({ error: 'empleado_id es requerido para usuarios' });
+      
       const [usuarios] = await pool.query('SELECT id FROM usuarios WHERE id = ?', [empleado_id]);
       if (usuarios.length === 0) {
-        return res.status(400).json({ error: 'Usuario no encontrado' });
+        return res.status(404).json({ error: 'Usuario no encontrado' });
       }
     } else if (tipo_empleado === 'remoto') {
-      empleado_remoto_id = Number(empleado_remoto_id);
-      if (isNaN(empleado_remoto_id)) {
-        return res.status(400).json({ error: 'ID de empleado remoto inválido' });
-      }
+      if (!empleado_remoto_id) return res.status(400).json({ error: 'empleado_remoto_id es requerido para empleados remotos' });
+      
       const [remotos] = await pool.query('SELECT id FROM empleados_remotos WHERE id = ?', [empleado_remoto_id]);
       if (remotos.length === 0) {
-        return res.status(400).json({ error: 'Empleado remoto no encontrado' });
+        return res.status(404).json({ error: 'Empleado remoto no encontrado' });
       }
     } else {
-      return res.status(400).json({ error: 'Tipo de empleado inválido' });
+      return res.status(400).json({ error: 'tipo_empleado debe ser "usuario" o "remoto"' });
     }
 
-    // Insertar en la columna correspondiente según tipo_empleado
-    let query = '';
-    let params = [];
-    if (tipo_empleado === 'usuario') {
-      query = 'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, NULL, ?, ?, ?, ?, ?, NOW())';
-      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
-    } else if (tipo_empleado === 'remoto') {
-      query = 'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (NULL, ?, ?, ?, ?, ?, ?, NOW())';
-      params = [empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
-    } else {
-      return res.status(400).json({ error: 'Tipo de empleado inválido' });
+    // Calcular duración automáticamente si no se proporciona
+    let calculatedDuration = duracion;
+    if (hora_salida && !duracion) {
+      const entrada = moment(hora_entrada, 'HH:mm:ss');
+      const salida = moment(hora_salida, 'HH:mm:ss');
+      calculatedDuration = salida.diff(entrada, 'minutes') + ' min';
     }
+
+    const query = `
+      INSERT INTO control_horarios 
+        (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+      tipo_empleado === 'usuario' ? empleado_id : null,
+      tipo_empleado === 'remoto' ? empleado_remoto_id : null,
+      tipo_empleado,
+      fecha,
+      hora_entrada,
+      hora_salida || null,
+      calculatedDuration || null
+    ];
 
     const [result] = await pool.query(query, params);
-    res.status(201).json({ id: result.insertId, empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion });
+    
+    // Obtener el registro recién creado
+    const [newRecord] = await pool.query(`
+      SELECT ch.*, 
+        CASE
+          WHEN ch.tipo_empleado = 'usuario' THEN u.nombre_completo
+          WHEN ch.tipo_empleado = 'remoto' THEN CONCAT(er.nombre, ' ', er.apellido)
+        END AS nombre_empleado
+      FROM control_horarios ch
+      LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
+      LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
+      WHERE ch.id = ?
+    `, [result.insertId]);
+
+    res.status(201).json(newRecord[0]);
   } catch (error) {
     console.error('Error al crear control de horario:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ 
+      error: 'Error al crear control de horario',
+      detalle: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
 
 // Editar horario
 app.put('/api/control-horarios/:id', async (req, res) => {
   const { id } = req.params;
-  const { empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion } = req.body;
-  if (!empleado_id || !tipo_empleado || !fecha || !hora_entrada || !hora_salida || !duracion) {
+  const { empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion } = req.body;
+
+  // Validaciones básicas
+  if (!tipo_empleado || !fecha || !hora_entrada) {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
+
   try {
-    // Actualizar en la columna correspondiente según tipo_empleado
-    let query = '';
-    let params = [];
-    if (tipo_empleado === 'usuario') {
-      query = 'UPDATE control_horarios SET empleado_id = ?, empleado_remoto_id = NULL, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
-      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
-    } else if (tipo_empleado === 'remoto') {
-      query = 'UPDATE control_horarios SET empleado_id = NULL, empleado_remoto_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
-      params = [empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
-    } else {
-      return res.status(400).json({ error: 'Tipo de empleado inválido' });
+    // Verificar que el registro existe
+    const [existing] = await pool.query('SELECT * FROM control_horarios WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Registro de horario no encontrado' });
     }
 
+    // Validar tipo de empleado
+    if (tipo_empleado === 'usuario') {
+      if (!empleado_id) return res.status(400).json({ error: 'empleado_id es requerido para usuarios' });
+      
+      const [usuarios] = await pool.query('SELECT id FROM usuarios WHERE id = ?', [empleado_id]);
+      if (usuarios.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+    } else if (tipo_empleado === 'remoto') {
+      if (!empleado_remoto_id) return res.status(400).json({ error: 'empleado_remoto_id es requerido para empleados remotos' });
+      
+      const [remotos] = await pool.query('SELECT id FROM empleados_remotos WHERE id = ?', [empleado_remoto_id]);
+      if (remotos.length === 0) {
+        return res.status(404).json({ error: 'Empleado remoto no encontrado' });
+      }
+    }
+
+    // Calcular duración automáticamente si hay hora_salida
+    let calculatedDuration = duracion;
+    if (hora_salida && !duracion) {
+      const entrada = moment(hora_entrada, 'HH:mm:ss');
+      const salida = moment(hora_salida, 'HH:mm:ss');
+      calculatedDuration = salida.diff(entrada, 'minutes') + ' min';
+    }
+
+    const query = `
+      UPDATE control_horarios 
+      SET 
+        empleado_id = ?, 
+        empleado_remoto_id = ?, 
+        tipo_empleado = ?, 
+        fecha = ?, 
+        hora_entrada = ?, 
+        hora_salida = ?, 
+        duracion = ?
+      WHERE id = ?
+    `;
+    const params = [
+      tipo_empleado === 'usuario' ? empleado_id : null,
+      tipo_empleado === 'remoto' ? empleado_remoto_id : null,
+      tipo_empleado,
+      fecha,
+      hora_entrada,
+      hora_salida || null,
+      calculatedDuration || null,
+      id
+    ];
+
     await pool.query(query, params);
-    res.json({ id, empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion });
+
+    // Obtener el registro actualizado
+    const [updatedRecord] = await pool.query(`
+      SELECT ch.*, 
+        CASE
+          WHEN ch.tipo_empleado = 'usuario' THEN u.nombre_completo
+          WHEN ch.tipo_empleado = 'remoto' THEN CONCAT(er.nombre, ' ', er.apellido)
+        END AS nombre_empleado
+      FROM control_horarios ch
+      LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
+      LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
+      WHERE ch.id = ?
+    `, [id]);
+
+    res.json(updatedRecord[0]);
   } catch (error) {
     console.error('Error al actualizar control de horario:', error);
-    res.status(500).json({ error: 'Error al actualizar control de horario' });
+    res.status(500).json({ 
+      error: 'Error al actualizar control de horario',
+      detalle: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
 
 // Eliminar horario
 app.delete('/api/control-horarios/:id', async (req, res) => {
   const { id } = req.params;
+
   try {
+    // Verificar que el registro existe
+    const [existing] = await pool.query('SELECT * FROM control_horarios WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Registro de horario no encontrado' });
+    }
+
     await pool.query('DELETE FROM control_horarios WHERE id = ?', [id]);
-    res.json({ message: 'Control de horario eliminado' });
+    
+    res.json({ 
+      message: 'Control de horario eliminado exitosamente',
+      registro_eliminado: existing[0]
+    });
   } catch (error) {
     console.error('Error al eliminar control de horario:', error);
-    res.status(500).json({ error: 'Error al eliminar control de horario' });
+    res.status(500).json({ 
+      error: 'Error al eliminar control de horario',
+      detalle: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
-
-app.get('/api/gerentes', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT id, identificacion, nombre_completo, correo, telefono FROM gerentes');
-    res.json(rows);
-  } catch (error) {
-    console.error('Error al obtener gerentes:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });
