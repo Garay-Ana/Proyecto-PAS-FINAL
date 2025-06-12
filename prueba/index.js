@@ -448,9 +448,11 @@ app.put('/api/control-horarios/:id', async (req, res) => {
     if (tipo_empleado === 'usuario') {
       query = 'UPDATE control_horarios SET empleado_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
       params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
-    } else {
+    } else if (tipo_empleado === 'remoto') {
       query = 'UPDATE control_horarios SET empleado_remoto_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
       params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
+    } else {
+      return res.status(400).json({ error: 'Tipo de empleado inválido' });
     }
 
     await pool.query(query, params);

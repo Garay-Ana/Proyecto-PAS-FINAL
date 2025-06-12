@@ -229,11 +229,11 @@ const ControlHorarios = () => {
           {empleados
             .filter((emp) => {
               if (!searchId) return true;
-              const idEmp = emp.tipo_empleado === 'usuario' ? emp.id : emp.id || '';
+              const idEmp = emp.id || emp.uid || '';
               return idEmp && idEmp.toString().toLowerCase().includes(searchId.toLowerCase());
             })
             .map((emp) => (
-              <option key={emp.tipo_empleado === 'usuario' ? emp.id : emp.id} value={`${emp.tipo_empleado === 'usuario' ? emp.id : emp.id}::${emp.tipo_empleado}`}>
+              <option key={emp.id || emp.uid} value={`${emp.id || emp.uid}::${emp.tipo_empleado}`}>
                 {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
               </option>
             ))}
