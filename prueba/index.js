@@ -374,6 +374,7 @@ app.get('/api/control-horarios', async (req, res) => {
       FROM control_horarios ch
       LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
       LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
+      WHERE ch.tipo_empleado IN ('usuario', 'remoto')
       ORDER BY ch.fecha DESC
     `);
     res.json(rows);
