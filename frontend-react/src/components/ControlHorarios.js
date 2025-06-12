@@ -12,6 +12,7 @@ const ControlHorarios = () => {
   const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchId, setSearchId] = useState(''); // nuevo estado para búsqueda por id
   const [form, setForm] = useState({
     empleado_id: '',
     tipo_empleado: 'usuario',
@@ -19,6 +20,18 @@ const ControlHorarios = () => {
     hora_entrada: '',
     hora_salida: '',
   });
+
+  // Añadir efecto para setear empleado_id por defecto si está vacío y hay empleados
+  useEffect(() => {
+    if (!form.empleado_id && empleados.length > 0) {
+      const firstEmp = empleados[0];
+      setForm((prev) => ({
+        ...prev,
+        empleado_id: firstEmp.id || firstEmp.uid || '',
+        tipo_empleado: firstEmp.tipo_empleado || 'usuario',
+      }));
+    }
+  }, [empleados, form.empleado_id]);
   const [editId, setEditId] = useState(null);
 
   const fetchHorarios = async () => {
@@ -82,6 +95,8 @@ const ControlHorarios = () => {
       // value tiene formato "id::tipo_empleado"
       const [id, tipo] = value.split('::');
       setForm((prev) => ({ ...prev, empleado_id: id, tipo_empleado: tipo }));
+    } else if (name === 'searchId') {
+      setSearchId(value);
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -101,6 +116,7 @@ const ControlHorarios = () => {
     e.preventDefault();
     const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
     try {
+      console.log('Datos a enviar:', { ...form, duracion });
       let res;
       if (editId) {
         // Editar horario existente
@@ -119,6 +135,7 @@ const ControlHorarios = () => {
       }
       if (!res.ok) throw new Error('Error al guardar horario');
       setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
+      setSearchId('');
       setEditId(null);
       fetchHorarios();
     } catch (err) {
@@ -134,6 +151,7 @@ const ControlHorarios = () => {
       hora_entrada: horario.hora_entrada,
       hora_salida: horario.hora_salida,
     });
+    setSearchId('');
     setEditId(horario.id);
   };
 
@@ -191,6 +209,14 @@ const ControlHorarios = () => {
 
       <h3>{editId ? 'Editar Horario' : 'Registrar Horas'}</h3>
       <form onSubmit={handleSubmit} className="control-horarios-form">
+        <input
+          type="text"
+          name="searchId"
+          placeholder="Buscar empleado por ID"
+          value={searchId}
+          onChange={handleChange}
+          className="search-id-input"
+        />
         <select
           name="empleado_id"
           value={`${form.empleado_id}::${form.tipo_empleado}`}
@@ -200,11 +226,17 @@ const ControlHorarios = () => {
           disabled={false}
         >
           <option value="" disabled>Seleccione un empleado</option>
-          {empleados.map((emp) => (
-        <option key={emp.id || emp.uid} value={`${emp.id || emp.uid}::${emp.tipo_empleado}`}>
-          {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
-        </option>
-          ))}
+          {empleados
+            .filter((emp) => {
+              if (!searchId) return true;
+              const idEmp = emp.tipo_empleado === 'usuario' ? emp.id : emp.id || '';
+              return idEmp && idEmp.toString().toLowerCase().includes(searchId.toLowerCase());
+            })
+            .map((emp) => (
+              <option key={emp.tipo_empleado === 'usuario' ? emp.id : emp.id} value={`${emp.tipo_empleado === 'usuario' ? emp.id : emp.id}::${emp.tipo_empleado}`}>
+                {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
+              </option>
+            ))}
         </select>
         <input
           type="date"
@@ -235,9 +267,10 @@ const ControlHorarios = () => {
             type="button"
             className="control-horarios-cancel"
             onClick={() => {
-              setForm({ empleado_id: '', fecha: '', hora_entrada: '', hora_salida: '' });
+              setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
               setEditId(null);
               setError('');
+              setSearchId('');
             }}
           >
             Cancelar

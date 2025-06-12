@@ -4,7 +4,7 @@ import StatsContainer from './StatsContainer';
 import Controls from './Controls';
 import DataSection from './DataSection';
 
-const API_URL = 'https://pruepas.onrender.com/api/historial';
+const API_URL = 'https://proyecto-pas-final.onrender.com/api/historial';
 const API_REMOTO_URL = 'https://proyecto-pas-final.onrender.com/api/historial-entradas';
 
 function Dashboard() {

@@ -390,6 +390,21 @@ app.post('/api/control-horarios', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
+    // Validar existencia de empleado_id según tipo_empleado
+    if (tipo_empleado === 'usuario') {
+      const [usuarios] = await pool.query('SELECT id FROM usuarios WHERE id = ?', [empleado_id]);
+      if (usuarios.length === 0) {
+        return res.status(400).json({ error: 'Usuario no encontrado' });
+      }
+    } else if (tipo_empleado === 'remoto') {
+      const [remotos] = await pool.query('SELECT id FROM empleados_remotos WHERE id = ?', [empleado_id]);
+      if (remotos.length === 0) {
+        return res.status(400).json({ error: 'Empleado remoto no encontrado' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Tipo de empleado inválido' });
+    }
+
     const [result] = await pool.query(
       'INSERT INTO control_horarios (empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())',
       [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion]
