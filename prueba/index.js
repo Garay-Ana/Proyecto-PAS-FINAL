@@ -428,10 +428,10 @@ app.post('/api/control-horarios', async (req, res) => {
     let query = '';
     let params = [];
     if (tipo_empleado === 'usuario') {
-      query = 'INSERT INTO control_horarios (empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+      query = 'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, NULL, ?, ?, ?, ?, ?, NOW())';
       params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
     } else if (tipo_empleado === 'remoto') {
-      query = 'INSERT INTO control_horarios (empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+      query = 'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (NULL, ?, ?, ?, ?, ?, ?, NOW())';
       params = [empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
     } else {
       return res.status(400).json({ error: 'Tipo de empleado inválido' });
@@ -457,11 +457,11 @@ app.put('/api/control-horarios/:id', async (req, res) => {
     let query = '';
     let params = [];
     if (tipo_empleado === 'usuario') {
-      query = 'UPDATE control_horarios SET empleado_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
+      query = 'UPDATE control_horarios SET empleado_id = ?, empleado_remoto_id = NULL, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
       params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
     } else if (tipo_empleado === 'remoto') {
-      query = 'UPDATE control_horarios SET empleado_remoto_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
-      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
+      query = 'UPDATE control_horarios SET empleado_id = NULL, empleado_remoto_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
+      params = [empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
     } else {
       return res.status(400).json({ error: 'Tipo de empleado inválido' });
     }
