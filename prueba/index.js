@@ -372,8 +372,8 @@ app.get('/api/control-horarios', async (req, res) => {
       SELECT ch.*, 
         COALESCE(u.nombre_completo, er.nombre) AS nombre_completo
       FROM control_horarios ch
-      LEFT JOIN usuarios u ON ch.empleado_id = u.uid AND ch.tipo_empleado = 'usuario'
-      LEFT JOIN empleados_remotos er ON ch.empleado_id = er.id AND ch.tipo_empleado = 'remoto'
+      LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
+      LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
       ORDER BY ch.fecha DESC
     `);
     res.json(rows);
@@ -405,10 +405,18 @@ app.post('/api/control-horarios', async (req, res) => {
       return res.status(400).json({ error: 'Tipo de empleado inválido' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO control_horarios (empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())',
-      [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion]
-    );
+    // Insertar en la columna correspondiente según tipo_empleado
+    let query = '';
+    let params = [];
+    if (tipo_empleado === 'usuario') {
+      query = 'INSERT INTO control_horarios (empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
+    } else {
+      query = 'INSERT INTO control_horarios (empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, creado_en) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion];
+    }
+
+    const [result] = await pool.query(query, params);
     res.status(201).json({ id: result.insertId, empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion });
   } catch (error) {
     console.error('Error al crear control de horario:', error);
@@ -424,10 +432,18 @@ app.put('/api/control-horarios/:id', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos obligatorios' });
   }
   try {
-    await pool.query(
-      'UPDATE control_horarios SET empleado_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?',
-      [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id]
-    );
+    // Actualizar en la columna correspondiente según tipo_empleado
+    let query = '';
+    let params = [];
+    if (tipo_empleado === 'usuario') {
+      query = 'UPDATE control_horarios SET empleado_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
+      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
+    } else {
+      query = 'UPDATE control_horarios SET empleado_remoto_id = ?, tipo_empleado = ?, fecha = ?, hora_entrada = ?, hora_salida = ?, duracion = ? WHERE id = ?';
+      params = [empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion, id];
+    }
+
+    await pool.query(query, params);
     res.json({ id, empleado_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion });
   } catch (error) {
     console.error('Error al actualizar control de horario:', error);
