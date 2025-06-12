@@ -142,7 +142,7 @@ app.get('/api/historial-entradas', async (req, res) => {
 
 app.get('/api/usuarios', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT uid, identificacion, nombre_completo, correo, telefono, rol, fecha_registro FROM usuarios');
+    const [rows] = await pool.query('SELECT id, uid, identificacion, nombre_completo, correo, telefono, rol, fecha_registro FROM usuarios');
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
