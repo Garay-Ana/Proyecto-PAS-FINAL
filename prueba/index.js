@@ -892,7 +892,7 @@ app.get('/api/asistencia/rfid', async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener registros de asistencia RFID:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor', detalle: error });
   }
 });
 
