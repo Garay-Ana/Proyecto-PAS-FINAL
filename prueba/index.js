@@ -882,7 +882,7 @@ app.get('/api/asistencia/rfid', async (req, res) => {
     const [rows] = await pool.query(`
       SELECT a.id, a.uid, a.usuario_id, a.timestamp, a.es_registrado, 
         u.nombre_completo AS usuario_nombre,
-        ch.tipo_registro, ch.diferencia_tiempo, ch.duracion, ch.estado
+        ch.duracion
       FROM accesos a
       LEFT JOIN usuarios u ON a.usuario_id = u.id
       LEFT JOIN control_horarios ch ON a.control_horario_id = ch.id
