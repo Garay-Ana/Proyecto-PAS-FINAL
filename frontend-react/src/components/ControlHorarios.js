@@ -124,13 +124,25 @@ const ControlHorarios = () => {
       return;
     }
     const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
+
+    // Añadir segundos al formato de hora si no existen
+    const formatHora = (hora) => {
+      if (hora.length === 5) {
+        return hora + ':00';
+      }
+      return hora;
+    };
+
+    const hora_entrada_formateada = formatHora(form.hora_entrada);
+    const hora_salida_formateada = formatHora(form.hora_salida);
+
     try {
       // Construir payload explícito
       let payload = {
         tipo_empleado: form.tipo_empleado,
         fecha: form.fecha,
-        hora_entrada: form.hora_entrada,
-        hora_salida: form.hora_salida,
+        hora_entrada: hora_entrada_formateada,
+        hora_salida: hora_salida_formateada,
         duracion: duracion,
       };
       if (form.tipo_empleado === 'remoto') {
@@ -147,7 +159,7 @@ const ControlHorarios = () => {
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch(API_URL, {
+        res = await fetch(`${API_URL}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -213,7 +225,7 @@ const ControlHorarios = () => {
             {horarios.map((h) => (
               <tr key={h.id}>
                 <td>{h.nombre_completo}</td>
-<td>{new Date(h.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
+                <td>{new Date(h.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
                 <td>{h.hora_entrada}</td>
                 <td>{h.hora_salida}</td>
                 <td>{h.duracion}</td>

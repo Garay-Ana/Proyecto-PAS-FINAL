@@ -633,7 +633,7 @@ app.post('/api/control-horarios', async (req, res) => {
       responseError.detalles = 'Registro duplicado';
     }
 
-    return res.status(500).json(responseError);
+    res.status(500).json({ error: 'Error interno del servidor', detalle: error });
   }
 });
 // Editar horario
