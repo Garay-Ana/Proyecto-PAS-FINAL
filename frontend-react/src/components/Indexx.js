@@ -350,13 +350,13 @@ const Indexx = () => {
   return (
     <div className="container">
       <div className="header">
-        <h1>🔐 Control de Acceso RFID</h1>
+        <h1>🔐 Sistema de Control de Acceso RFID</h1>
         <p>Sistema de monitoreo y gestión de usuarios</p>
       </div>
 
       <div className="tabs">
         {/*
-        <div
+        <divS
           className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => handleTabClick('dashboard')}
         >
