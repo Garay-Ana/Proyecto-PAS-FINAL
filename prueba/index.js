@@ -456,125 +456,167 @@ app.get('/api/control-horarios', async (req, res) => {
 
 // Crear nuevo horario
 app.post('/api/control-horarios', async (req, res) => {
-  console.log('Datos recibidos para nuevo horario:', JSON.stringify(req.body, null, 2));
+  console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
 
   try {
-    const { empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida } = req.body;
+    // Validación de campos requeridos
+    const requiredFields = {
+      'tipo_empleado': "'usuario' o 'remoto'",
+      'fecha': 'Formato YYYY-MM-DD',
+      'hora_entrada': 'Formato HH:MM:SS'
+    };
 
-    // Validación completa de campos
-    const errors = [];
+    const missingFields = Object.keys(requiredFields).filter(field => !req.body[field]);
     
-    if (!tipo_empleado) errors.push('El tipo de empleado es requerido (usuario/remoto)');
-    if (!fecha) errors.push('La fecha es requerida');
-    if (!hora_entrada) errors.push('La hora de entrada es requerida');
-    
-    if (tipo_empleado === 'usuario' && !empleado_id) {
-      errors.push('empleado_id es requerido para usuarios');
-    }
-    if (tipo_empleado === 'remoto' && !empleado_remoto_id) {
-      errors.push('empleado_remoto_id es requerido para empleados remotos');
-    }
-
-    if (errors.length > 0) {
-      return res.status(400).json({ 
-        error: 'Validación fallida',
-        detalles: errors,
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: 'Campos requeridos faltantes',
+        detalles: missingFields.map(field => ({
+          campo: field,
+          descripcion: requiredFields[field]
+        })),
         datos_recibidos: req.body
       });
     }
 
-    // Verificar que el empleado existe
-    let empleadoExiste = false;
-    let queryVerificacion = '';
-    let parametrosVerificacion = [];
-
-    if (tipo_empleado === 'usuario') {
-      queryVerificacion = 'SELECT id FROM usuarios WHERE id = ?';
-      parametrosVerificacion = [empleado_id];
-    } else {
-      queryVerificacion = 'SELECT id FROM empleados_remotos WHERE id = ?';
-      parametrosVerificacion = [empleado_remoto_id];
+    // Validación de tipo de empleado
+    if (!['usuario', 'remoto'].includes(req.body.tipo_empleado)) {
+      return res.status(400).json({
+        error: 'Tipo de empleado inválido',
+        valores_aceptados: ['usuario', 'remoto'],
+        valor_recibido: req.body.tipo_empleado
+      });
     }
 
-    const [resultadoVerificacion] = await pool.query(queryVerificacion, parametrosVerificacion);
-    empleadoExiste = resultadoVerificacion.length > 0;
+    // Configuración según tipo de empleado
+    const empleadoConfig = {
+      idField: req.body.tipo_empleado === 'usuario' ? 'empleado_id' : 'empleado_remoto_id',
+      tableName: req.body.tipo_empleado === 'usuario' ? 'usuarios' : 'empleados_remotos'
+    };
 
-    if (!empleadoExiste) {
-      return res.status(404).json({ 
+    // Validar ID de empleado
+    if (!req.body[empleadoConfig.idField]) {
+      return res.status(400).json({
+        error: 'ID de empleado faltante',
+        campo_requerido: empleadoConfig.idField,
+        tipo_empleado: req.body.tipo_empleado
+      });
+    }
+
+    // Verificar que el empleado existe
+    const [empleado] = await pool.query(
+      `SELECT id FROM ${empleadoConfig.tableName} WHERE id = ?`,
+      [req.body[empleadoConfig.idField]]
+    );
+
+    if (empleado.length === 0) {
+      return res.status(404).json({
         error: 'Empleado no encontrado',
-        tipo_empleado,
-        id_buscado: tipo_empleado === 'usuario' ? empleado_id : empleado_remoto_id
+        [empleadoConfig.idField]: req.body[empleadoConfig.idField],
+        tabla_buscada: empleadoConfig.tableName
+      });
+    }
+
+    // Validación de formatos de fecha y hora
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.fecha)) {
+      return res.status(400).json({
+        error: 'Formato de fecha inválido',
+        formato_requerido: 'YYYY-MM-DD',
+        fecha_recibida: req.body.fecha
+      });
+    }
+
+    if (!/^\d{2}:\d{2}:\d{2}$/.test(req.body.hora_entrada)) {
+      return res.status(400).json({
+        error: 'Formato de hora entrada inválido',
+        formato_requerido: 'HH:MM:SS',
+        hora_recibida: req.body.hora_entrada
+      });
+    }
+
+    if (req.body.hora_salida && !/^\d{2}:\d{2}:\d{2}$/.test(req.body.hora_salida)) {
+      return res.status(400).json({
+        error: 'Formato de hora salida inválido',
+        formato_requerido: 'HH:MM:SS',
+        hora_recibida: req.body.hora_salida
       });
     }
 
     // Calcular duración si hay hora_salida
     let duracion = null;
-    if (hora_salida) {
+    if (req.body.hora_salida) {
       try {
-        const entrada = moment(hora_entrada, 'HH:mm:ss');
-        const salida = moment(hora_salida, 'HH:mm:ss');
+        const entrada = moment(req.body.hora_entrada, 'HH:mm:ss');
+        const salida = moment(req.body.hora_salida, 'HH:mm:ss');
         const diffMinutes = salida.diff(entrada, 'minutes');
+        
+        if (diffMinutes < 0) {
+          return res.status(400).json({
+            error: 'La hora de salida debe ser posterior a la hora de entrada',
+            hora_entrada: req.body.hora_entrada,
+            hora_salida: req.body.hora_salida
+          });
+        }
+
         const hours = Math.floor(diffMinutes / 60);
         const minutes = diffMinutes % 60;
         duracion = `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m`;
       } catch (error) {
         console.error('Error calculando duración:', error);
         return res.status(400).json({
-          error: 'Formato de hora inválido',
-          requerido: 'HH:mm:ss',
-          recibido: { hora_entrada, hora_salida }
+          error: 'Error al calcular duración',
+          detalles: 'Formato de hora inválido'
         });
       }
     }
 
-    // Preparar query de inserción
-    const query = `
-      INSERT INTO control_horarios (
-        empleado_id,
-        empleado_remoto_id,
-        tipo_empleado,
-        fecha,
-        hora_entrada,
-        hora_salida,
-        duración
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
+    // Preparar datos para inserción
+    const horarioData = {
+      empleado_id: req.body.tipo_empleado === 'usuario' ? req.body.empleado_id : null,
+      empleado_remoto_id: req.body.tipo_empleado === 'remoto' ? req.body.empleado_remoto_id : null,
+      tipo_empleado: req.body.tipo_empleado,
+      fecha: req.body.fecha,
+      hora_entrada: req.body.hora_entrada,
+      hora_salida: req.body.hora_salida || null,
+      duracion: duracion
+    };
 
-    const params = [
-      tipo_empleado === 'usuario' ? empleado_id : null,
-      tipo_empleado === 'remoto' ? empleado_remoto_id : null,
-      tipo_empleado,
-      fecha,
-      hora_entrada,
-      hora_salida || null,
-      duracion
-    ];
-
-    console.log('Ejecutando query:', { query, params });
+    console.log('Datos preparados para inserción:', horarioData);
 
     // Ejecutar inserción
-    const [result] = await pool.query(query, params);
+    const [result] = await pool.query('INSERT INTO control_horarios SET ?', [horarioData]);
 
     // Obtener el registro recién creado
-    const [nuevoRegistro] = await pool.query('SELECT * FROM control_horarios WHERE id = ?', [result.insertId]);
+    const [nuevoHorario] = await pool.query(`
+      SELECT ch.*, 
+        CASE
+          WHEN ch.tipo_empleado = 'usuario' THEN u.nombre_completo
+          WHEN ch.tipo_empleado = 'remoto' THEN CONCAT(er.nombre, ' ', er.apellido)
+        END AS nombre_empleado
+      FROM control_horarios ch
+      LEFT JOIN usuarios u ON ch.empleado_id = u.id AND ch.tipo_empleado = 'usuario'
+      LEFT JOIN empleados_remotos er ON ch.empleado_remoto_id = er.id AND ch.tipo_empleado = 'remoto'
+      WHERE ch.id = ?
+    `, [result.insertId]);
+
+    console.log('Horario guardado exitosamente:', nuevoHorario[0]);
 
     return res.status(201).json({
       success: true,
-      message: 'Horario guardado exitosamente',
-      data: nuevoRegistro[0]
+      message: 'Horario guardado correctamente',
+      data: nuevoHorario[0]
     });
 
   } catch (error) {
-    console.error('Error completo al guardar horario:', {
+    console.error('Error al guardar horario:', {
       timestamp: new Date().toISOString(),
       error: {
         message: error.message,
         code: error.code,
         sqlMessage: error.sqlMessage,
-        sql: error.sql,
-        stack: error.stack
+        sql: error.sql
       },
-      requestBody: req.body
+      body: req.body
     });
 
     const responseError = {
@@ -582,10 +624,13 @@ app.post('/api/control-horarios', async (req, res) => {
       detalles: process.env.NODE_ENV === 'development' ? error.message : null
     };
 
+    // Manejar errores específicos de MySQL
     if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-      responseError.detalles = 'El empleado referenciado no existe';
+      responseError.detalles = 'El empleado referenciado no existe en la base de datos';
     } else if (error.code === 'ER_TRUNCATED_WRONG_VALUE') {
-      responseError.detalles = 'Formato de fecha/hora incorrecto';
+      responseError.detalles = 'Formato de fecha u hora incorrecto';
+    } else if (error.code === 'ER_DUP_ENTRY') {
+      responseError.detalles = 'Registro duplicado';
     }
 
     return res.status(500).json(responseError);
