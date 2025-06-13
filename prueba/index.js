@@ -581,10 +581,11 @@ app.post('/api/control-horarios', async (req, res) => {
       duracion: duracion
     };
 
-    // Asegurar que empleado_id no sea null para evitar error en BD
-    if (horarioData.empleado_id === null) {
-      horarioData.empleado_id = 0; // o algún valor válido que no cause error
-    }
+    // Eliminar la asignación de valor 0 para empleado_id para evitar error de clave foránea
+    // Ahora se permite que empleado_id sea null cuando el empleado es remoto
+    // if (horarioData.empleado_id === null) {
+    //   horarioData.empleado_id = 0; // o algún valor válido que no cause error
+    // }
 
     console.log('Datos preparados para inserción:', horarioData);
 
