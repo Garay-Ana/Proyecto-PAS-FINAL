@@ -715,7 +715,6 @@ app.delete('/api/control-horarios/:id', async (req, res) => {
     });
   }
 });
-const moment = require('moment-timezone');
 const TIMEZONE = 'America/Bogota';
 
 // Endpoint POST para registrar asistencia por RFID
