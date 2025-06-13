@@ -41,18 +41,18 @@ const ControlHorarios = () => {
       if (!res.ok) throw new Error('Error al cargar horarios');
       const data = await res.json();
 
-      // Mapear nombre_completo en cada horario usando empleados
+      // Mapear nombre_empleado en cada horario usando empleados
       const dataConNombres = data.map((horario) => {
         const empleado = empleados.find(
           (emp) =>
-            (emp.id === horario.empleado_id || emp.uid === horario.empleado_id) &&
+            (emp.id === horario.empleado_id || emp.uid === horario.empleado_id || emp.id === horario.empleado_remoto_id) &&
             emp.tipo_empleado === horario.tipo_empleado
         );
         return {
           ...horario,
-          nombre_completo: empleado
+          nombre_completo: horario.nombre_empleado || (empleado
             ? empleado.nombre_completo || empleado.nombre || empleado.nombre_usuario || ''
-            : '',
+            : ''),
         };
       });
 
@@ -140,7 +140,7 @@ const ControlHorarios = () => {
       // Construir payload explícito
       let payload = {
         tipo_empleado: form.tipo_empleado,
-        fecha: form.fecha,
+        fecha: form.fecha ? new Date(form.fecha).toISOString().split('T')[0] : '',
         hora_entrada: hora_entrada_formateada,
         hora_salida: hora_salida_formateada,
         duracion: duracion,
@@ -179,7 +179,7 @@ const ControlHorarios = () => {
     setForm({
       empleado_id: horario.empleado_id,
       tipo_empleado: horario.tipo_empleado || 'usuario',
-      fecha: new Date(horario.fecha).toISOString().split('T')[0],
+      fecha: horario.fecha, // Usar fecha tal cual viene para evitar desfase
       hora_entrada: horario.hora_entrada,
       hora_salida: horario.hora_salida,
     });

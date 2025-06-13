@@ -715,6 +715,189 @@ app.delete('/api/control-horarios/:id', async (req, res) => {
     });
   }
 });
+const moment = require('moment-timezone');
+const TIMEZONE = 'America/Bogota';
+
+// Endpoint POST para registrar asistencia por RFID
+app.post('/api/asistencia/rfid', async (req, res) => {
+  console.log('Datos recibidos:', JSON.stringify(req.body, null, 2));
+
+  try {
+    if (!req.body.uid) {
+      return res.status(400).json({
+        error: 'UID requerido',
+        status: 'UID_FALTANTE'
+      });
+    }
+
+    const timestamp = moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
+    const horaActual = moment().tz(TIMEZONE).format('HH:mm:ss');
+
+    // 1. Registrar el acceso en accesos (equivalente a rfid_registros)
+    const [accesoResult] = await pool.query(
+      `INSERT INTO accesos SET ?`,
+      {
+        uid: req.body.uid,
+        timestamp: timestamp,
+        es_registrado: 0 // Temporalmente 0 hasta verificar
+      }
+    );
+
+    // 2. Buscar usuario asociado al UID
+    const [usuario] = await pool.query(`
+      SELECT u.*, h.hora_inicio1, h.hora_inicio2, h.hora_fin1, h.hora_fin2 
+      FROM usuarios u
+      LEFT JOIN horarios h ON u.horario_id = h.id
+      WHERE u.uid = ? AND u.activo = 1
+      LIMIT 1
+    `, [req.body.uid]);
+
+    if (usuario.length === 0) {
+      console.log('UID no registrado:', req.body.uid);
+      return res.status(200).json({
+        status: 'UID_NO_REGISTRADO',
+        message: 'Tarjeta no asociada a usuario activo'
+      });
+    }
+
+    const usuarioData = usuario[0];
+
+    // 3. Determinar si es entrada o salida
+    const [ultimoRegistro] = await pool.query(`
+      SELECT tipo_registro 
+      FROM control_horarios 
+      WHERE usuario_id = ?
+      ORDER BY timestamp DESC 
+      LIMIT 1
+    `, [usuarioData.id]);
+
+    const esEntrada = ultimoRegistro.length === 0 || ultimoRegistro[0].tipo_registro === 'salida';
+    const tipoRegistro = esEntrada ? 'entrada' : 'salida';
+
+    // 4. Insertar en control_horarios
+    const horarioData = {
+      usuario_id: usuarioData.id,
+      timestamp: timestamp,
+      tipo_registro: tipoRegistro,
+      es_registrado: 1
+    };
+
+    if (esEntrada && usuarioData.hora_inicio1) {
+      // Calcular diferencia para entrada
+      const horaReferencia = determinarHoraReferencia(usuarioData, horaActual);
+      horarioData.diferencia_tiempo = calcularDiferencia(horaReferencia, horaActual);
+      horarioData.estado = determinarEstado(horarioData.diferencia_tiempo);
+    } else if (!esEntrada) {
+      // Calcular duración para salida
+      const [entrada] = await pool.query(`
+        SELECT timestamp 
+        FROM control_horarios 
+        WHERE usuario_id = ? AND tipo_registro = 'entrada'
+        ORDER BY timestamp DESC 
+        LIMIT 1
+      `, [usuarioData.id]);
+
+      if (entrada.length > 0) {
+        horarioData.duracion = calcularDuracion(
+          moment(entrada[0].timestamp).format('HH:mm:ss'),
+          horaActual
+        );
+      }
+    }
+
+    const [horarioResult] = await pool.query(
+      `INSERT INTO control_horarios SET ?`,
+      horarioData
+    );
+
+    // 5. Actualizar accesos con control_horario_id y usuario_id
+    await pool.query(
+      `UPDATE accesos SET 
+          usuario_id = ?,
+          control_horario_id = ?,
+          es_registrado = 1
+       WHERE id = ?`,
+      [usuarioData.id, horarioResult.insertId, accesoResult.insertId]
+    );
+
+    // Respuesta exitosa
+    return res.status(201).json({
+      success: true,
+      registro: {
+        tipo: tipoRegistro,
+        usuario: usuarioData.nombre_completo || `${usuarioData.nombre} ${usuarioData.apellido}`,
+        timestamp: timestamp,
+        diferencia: horarioData.diferencia_tiempo,
+        duracion: horarioData.duracion,
+        estado: horarioData.estado
+      }
+    });
+
+  } catch (error) {
+    console.error('Error en registro RFID:', error);
+    return res.status(500).json({
+      error: 'Error en el servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : null
+    });
+  }
+});
+
+// Funciones auxiliares
+function determinarHoraReferencia(usuario, horaActual) {
+  const actual = moment(horaActual, 'HH:mm:ss');
+  const entrada1 = moment(usuario.hora_inicio1, 'HH:mm:ss');
+  const entrada2 = moment(usuario.hora_inicio2, 'HH:mm:ss');
+
+  const diff1 = actual.diff(entrada1, 'minutes');
+  const diff2 = actual.diff(entrada2, 'minutes');
+
+  return (diff1 >= 0 && (diff1 <= diff2 || diff2 < 0)) 
+      ? usuario.hora_inicio1 
+      : usuario.hora_inicio2;
+}
+
+function calcularDiferencia(referencia, actual) {
+  const ref = moment(referencia, 'HH:mm:ss');
+  const act = moment(actual, 'HH:mm:ss');
+  const minutos = act.diff(ref, 'minutes');
+  
+  return minutos === 0 ? 'A tiempo' : 
+         minutos < 0 ? `${Math.abs(minutos)} min temprano` : 
+         `${minutos} min tarde`;
+}
+
+function determinarEstado(diferencia) {
+  const minutosTarde = parseInt(diferencia) || 0;
+  return minutosTarde > 5 ? 'Tarde' : 'Presente';
+}
+
+function calcularDuracion(inicio, fin) {
+  const minutos = moment(fin, 'HH:mm:ss').diff(moment(inicio, 'HH:mm:ss'), 'minutes');
+  const horas = Math.floor(minutos / 60);
+  const mins = minutos % 60;
+  return `${horas}h ${mins}m`;
+}
+
+app.get('/api/asistencia/rfid', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT a.id, a.uid, a.usuario_id, a.timestamp, a.es_registrado, 
+        u.nombre_completo AS usuario_nombre,
+        ch.tipo_registro, ch.diferencia_tiempo, ch.duracion, ch.estado
+      FROM accesos a
+      LEFT JOIN usuarios u ON a.usuario_id = u.id
+      LEFT JOIN control_horarios ch ON a.control_horario_id = ch.id
+      ORDER BY a.timestamp DESC
+      LIMIT 100
+    `);
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener registros de asistencia RFID:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Servidor escuchando en puerto ${port}`);
 });
+
