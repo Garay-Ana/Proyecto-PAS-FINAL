@@ -581,6 +581,11 @@ app.post('/api/control-horarios', async (req, res) => {
       duracion: duracion
     };
 
+    // Asegurar que empleado_id no sea null para evitar error en BD
+    if (horarioData.empleado_id === null) {
+      horarioData.empleado_id = 0; // o algún valor válido que no cause error
+    }
+
     console.log('Datos preparados para inserción:', horarioData);
 
     // Ejecutar inserción
