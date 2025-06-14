@@ -264,7 +264,7 @@ app.get('/api/accesos', async (req, res) => {
 
     // Convertir timestamp a zona America/Bogota y formatear
     const formattedRows = rows.map(row => {
-      const momentTimestamp = moment.tz(row.timestamp, 'UTC').tz('America/Bogota');
+      const momentTimestamp = moment.tz(row.timestamp, 'America/Bogota');
       return {
         ...row,
         timestamp: momentTimestamp.format('YYYY-MM-DD HH:mm:ss')

@@ -60,7 +60,7 @@ const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, loa
                             <span className="uid-code">{entry.uid}</span>
                           </td>
                           <td>{userName}</td>
-                          <td className="timestamp">{formatDate(entry.timestamp)}</td>
+                          <td className="timestamp">{entry.timestamp}</td>
                           <td>{getTimeAgo(entry.timestamp)}</td>
                         </tr>
                       );
