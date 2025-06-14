@@ -140,7 +140,7 @@ app.post('/api/registro-asistencia', async (req, res) => {
     if (openRecord.length > 0) {
       // Registrar salida
       await pool.query(
-        'UPDATE control_horarios SET hora_salida = ?, duración = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
+        'UPDATE control_horarios SET hora_salida = ?, duracion = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
         [hora, hora, openRecord[0].id]
       );
       return res.json({ message: 'Salida registrada', empleadoId, fecha, hora });
@@ -155,7 +155,7 @@ app.post('/api/registro-asistencia', async (req, res) => {
           fecha,
           hora,
           null,
-          null
+          '0h 0m'
         ]
       );
       return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora });
@@ -680,7 +680,7 @@ app.put('/api/control-horarios/:id', async (req, res) => {
 
     // Actualizar solo hora_salida y duración
     await pool.query(
-      'UPDATE control_horarios SET hora_salida = ?, duración = ? WHERE id = ?',
+      'UPDATE control_horarios SET hora_salida = ?, duracion = ? WHERE id = ?',
       [hora_salida, duracion, id]
     );
 
