@@ -4,7 +4,6 @@ import './indexx.css';
 const API_URL = 'https://proyecto-pas-final.onrender.com/api/historial';
 const USERS_API_URL = 'https://proyecto-pas-final.onrender.com/api/usuarios';
 const ACCESS_API_URL = 'https://proyecto-pas-final.onrender.com/api/accesos';
-const ASISTENCIA_API_URL = 'https://proyecto-pas-final.onrender.com/api/asistencia/rfid';
 const TIME_API_URL = 'https://proyecto-pas-final.onrender.com/api/tiempos';
 
 const Indexx = () => {
@@ -129,7 +128,7 @@ const Indexx = () => {
     setLoading((prev) => ({ ...prev, accesos: true }));
     setErrorMessages((prev) => ({ ...prev, accesos: '' }));
     try {
-      const res = await fetch(ASISTENCIA_API_URL);
+      const res = await fetch(ACCESS_API_URL);
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();
       setAccessRecords(data);
@@ -351,13 +350,13 @@ const Indexx = () => {
   return (
     <div className="container">
       <div className="header">
-        <h1>🔐 Sistema de Control de Acceso RFID</h1>
+        <h1>🔐 Control de Acceso RFID</h1>
         <p>Sistema de monitoreo y gestión de usuarios</p>
       </div>
 
       <div className="tabs">
         {/*
-        <divS
+        <div
           className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => handleTabClick('dashboard')}
         >

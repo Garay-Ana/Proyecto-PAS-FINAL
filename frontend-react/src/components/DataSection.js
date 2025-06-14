@@ -30,7 +30,7 @@ function DataSection({ data, isLoading, error }) {
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>{entry.apellido || '-'}</td>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>{entry.uid || '-'}</td>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-              {new Date(entry.timestamp || entry.fecha_hora).toLocaleString('es-ES')}
+              {new Date(entry.timestamp || entry.fecha_hora).toLocaleString('es-ES', { timeZone: 'America/Bogota' })}
             </td>
           </tr>
         ))}

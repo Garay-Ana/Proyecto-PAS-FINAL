@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import StatsContainer from './StatsContainer';
 import Controls from './Controls';
@@ -13,19 +14,7 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState(true);
 
-  function getTimeAgo(dateString) {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffMs = now - past;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Ahora mismo';
-    if (diffMins < 60) return `${diffMins} min`;
-    if (diffHours < 24) return `${diffHours}h ${diffMins % 60}m`;
-    return `${diffDays}d ${diffHours % 24}h`;
-  }
+  const navigate = useNavigate();
 
   function updateStats(data) {
     const totalEntries = data.length;
@@ -36,11 +25,12 @@ function Dashboard() {
     }).length;
 
     const uniqueCards = [...new Set(data.filter(entry => entry.uid).map(entry => entry.uid))].length;
-    const lastEntry = data.length > 0 ?
-      new Date(data[data.length - 1].timestamp || data[data.length - 1].fecha_hora).toLocaleTimeString('es-ES', {
+    const lastEntry = data.length > 0
+      ? new Date(data[data.length - 1].timestamp || data[data.length - 1].fecha_hora).toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit'
-      }) : '--:--';
+      })
+      : '--:--';
 
     return { totalEntries, todayEntries, uniqueCards, lastEntry };
   }
@@ -49,35 +39,32 @@ function Dashboard() {
     setIsLoading(true);
     setError('');
     try {
-      const [responseFisico, responseRemoto] = await Promise.all([
+      const [resFisico, resRemoto] = await Promise.all([
         fetch(API_URL),
         fetch(API_REMOTO_URL)
       ]);
-      if (!responseFisico.ok) {
-        throw new Error(`Error del servidor físico: ${responseFisico.status}`);
-      }
-      if (!responseRemoto.ok) {
-        throw new Error(`Error del servidor remoto: ${responseRemoto.status}`);
-      }
-      const jsonDataFisico = await responseFisico.json();
-      const jsonDataRemoto = await responseRemoto.json();
 
-      // Mapear datos remotos para que tengan las mismas propiedades que los físicos para facilitar el render
-      const mappedRemoto = jsonDataRemoto.map(entry => ({
+      if (!resFisico.ok || !resRemoto.ok) {
+        throw new Error('Error al obtener los datos');
+      }
+
+      const dataFisico = await resFisico.json();
+      const dataRemoto = await resRemoto.json();
+
+      const mappedRemoto = dataRemoto.map(entry => ({
         uid: null,
         nombre: entry.nombre,
         apellido: entry.apellido,
         timestamp: entry.fecha_hora
       }));
 
-      const combinedData = [...jsonDataFisico, ...mappedRemoto];
-      // Ordenar por fecha descendente
-      combinedData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const combined = [...dataFisico, ...mappedRemoto];
+      combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      setData(combinedData);
+      setData(combined);
       setIsOnline(true);
     } catch (err) {
-      setError(`No se pudieron cargar los datos: ${err.message}`);
+      setError('No se pudieron cargar los datos: ' + err.message);
       setIsOnline(false);
     } finally {
       setIsLoading(false);
@@ -86,37 +73,62 @@ function Dashboard() {
 
   useEffect(() => {
     loadData();
-    const intervalLoad = setInterval(loadData, 30000);
-    const intervalUpdate = setInterval(() => {
-      setData(currentData => [...currentData]);
+    const reloadInterval = setInterval(loadData, 30000);
+    const updateInterval = setInterval(() => {
+      setData(d => [...d]);
     }, 60000);
+
     return () => {
-      clearInterval(intervalLoad);
-      clearInterval(intervalUpdate);
+      clearInterval(reloadInterval);
+      clearInterval(updateInterval);
     };
   }, []);
 
   const stats = updateStats(data);
 
+  const handleGoHome = () => {
+    navigate('/home');
+  };
+
   return (
-    <div className="container">
-      <Header />
-      <StatsContainer
-        totalEntries={stats.totalEntries}
-        todayEntries={stats.todayEntries}
-        uniqueCards={stats.uniqueCards}
-        lastEntry={stats.lastEntry}
-      />
-      <Controls
-        isOnline={isOnline}
-        statusMessage={error}
-        onRefresh={loadData}
-      />
-      <DataSection
-        data={data}
-        isLoading={isLoading}
-        error={error}
-      />
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-100 p-6 font-[Inter]">
+      <div className="max-w-6xl mx-auto">
+        <Header />
+
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={handleGoHome}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-2 rounded-xl shadow-lg transition duration-300"
+          >
+            Regresar a Inicio
+          </button>
+        </div>
+
+        <div className="my-8">
+          <StatsContainer
+            totalEntries={stats.totalEntries}
+            todayEntries={stats.todayEntries}
+            uniqueCards={stats.uniqueCards}
+            lastEntry={stats.lastEntry}
+          />
+        </div>
+
+        <div className="mb-6">
+          <Controls
+            isOnline={isOnline}
+            statusMessage={error}
+            onRefresh={loadData}
+          />
+        </div>
+
+        <div className="mb-10">
+          <DataSection
+            data={data}
+            isLoading={isLoading}
+            error={error}
+          />
+        </div>
+      </div>
     </div>
   );
 }

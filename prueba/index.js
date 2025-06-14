@@ -255,7 +255,7 @@ app.delete('/api/usuarios/:uid', async (req, res) => {
 app.get('/api/accesos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT r.id, r.uid, r.usuario_id, r.timestamp, r.es_registrado, u.nombre_completo AS nombre
+      SELECT r.id, r.uid, r.usuario_id, CONVERT_TZ(r.timestamp, '+00:00', 'America/Bogota') AS timestamp, r.es_registrado, u.nombre_completo AS nombre
       FROM accesos r
       LEFT JOIN usuarios u ON r.usuario_id = u.uid
       ORDER BY r.timestamp DESC

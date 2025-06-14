@@ -1,6 +1,7 @@
 import React from 'react';
+import { formatDate, getTimeAgo } from '../utils';
 
-const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, formatDate, getTimeAgo, loadAccessRecords, status, statusMessage }) => {
+const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, loadAccessRecords, status, statusMessage }) => {
   return (
     <div className="tab-content active" id="registros">
       <div className="data-section">
@@ -8,14 +9,12 @@ const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, for
       </div>
 
       <div className="controls">
-        <div className="status-indicator">
-          <div className={`status-dot ${status ? '' : 'offline'}`} id="statusDotRegistros"></div>
-          <span id="statusTextRegistros">{status ? 'Conectado' : statusMessage}</span>
-        </div>
-        <button className="btn" onClick={loadAccessRecords}>
-          <span>🔄</span> Actualizar Registros
-        </button>
+        <div className={`status-dot ${status ? '' : 'offline'}`} id="statusDotRegistros"></div>
+        <span id="statusTextRegistros">{status ? 'Conectado' : statusMessage}</span>
       </div>
+      <button className="btn" onClick={loadAccessRecords}>
+        <span>🔄</span> Actualizar Registros
+      </button>
 
       {loading && (
         <div className="loading">
