@@ -5,12 +5,12 @@ function VistaEntrada({ usuario, onLogout }) {
 
   const registrarEntrada = async () => {
     try {
-      const response = await fetch('https://proyecto-pas-final.onrender.com/api/registro-entrada', {
+      const response = await fetch('https://proyecto-pas-final.onrender.com/api/registro-asistencia', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ usuarioId: usuario.id })
+        body: JSON.stringify({ id: usuario.id, tipo: 'remoto' })
       });
       if (!response.ok) {
         const errorData = await response.json();

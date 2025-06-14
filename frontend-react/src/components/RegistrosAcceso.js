@@ -41,6 +41,8 @@ const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, loa
                     <th>UID</th>
                     <th>Usuario</th>
                     <th>Fecha y Hora</th>
+                    <th>Estado Registro</th>
+                    <th>Duración</th>
                     <th>Tiempo Transcurrido</th>
                   </tr>
                 </thead>
@@ -49,9 +51,9 @@ const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, loa
                     .slice()
                     .reverse()
                     .map((entry, index) => {
-                      const user = usersData.find((u) => u.uid === entry.uid);
+                      const user = usersData.find((u) => u.id === entry.usuario_id);
                       const userName = user
-                        ? `${user.nombre} (${user.identificacion})`
+                        ? `${user.nombre_completo || user.nombre} (${user.identificacion || ''})`
                         : 'Usuario no registrado';
                       return (
                         <tr key={entry.id}>
@@ -61,6 +63,8 @@ const RegistrosAcceso = ({ accessRecords, usersData, loading, errorMessages, loa
                           </td>
                           <td>{userName}</td>
                           <td className="timestamp">{entry.timestamp}</td>
+                          <td>{entry.es_registrado ? 'Registrado' : 'No registrado'}</td>
+                          <td>{entry.duracion || '-'}</td>
                           <td>{getTimeAgo(entry.timestamp)}</td>
                         </tr>
                       );

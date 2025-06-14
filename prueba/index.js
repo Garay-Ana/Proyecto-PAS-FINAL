@@ -103,8 +103,10 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/registro-asistencia', async (req, res) => {
-  const { uid, tipo } = req.body; // tipo puede ser 'usuario' o 'remoto'
-  if (!uid || !tipo) return res.status(400).json({ error: 'UID y tipo son requeridos' });
+  const { uid, tipo, id } = req.body; // tipo puede ser 'usuario' o 'remoto'
+  if ((tipo === 'usuario' && !uid) || (tipo === 'remoto' && !id) || !tipo) {
+    return res.status(400).json({ error: 'UID o ID y tipo son requeridos' });
+  }
 
   try {
     // Obtener empleado según el tipo
@@ -112,7 +114,7 @@ app.post('/api/registro-asistencia', async (req, res) => {
     if (tipo === 'usuario') {
       [empleado] = await pool.query('SELECT id FROM usuarios WHERE uid = ?', [uid]);
     } else if (tipo === 'remoto') {
-      [empleado] = await pool.query('SELECT id FROM empleados_remotos WHERE uid = ?', [uid]);
+      [empleado] = await pool.query('SELECT id FROM empleados_remotos WHERE id = ?', [id]);
     } else {
       return res.status(400).json({ error: 'Tipo de empleado inválido' });
     }
