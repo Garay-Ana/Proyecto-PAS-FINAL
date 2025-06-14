@@ -139,9 +139,21 @@ app.post('/api/registro-asistencia', async (req, res) => {
 
       if (openRecord.length > 0) {
         // Registrar salida
+        // Calcular duración en minutos usando moment
+        const [registro] = await pool.query('SELECT fecha, hora_entrada FROM control_horarios WHERE id = ?', [openRecord[0].id]);
+        if (registro.length === 0) {
+          return res.status(404).json({ error: 'Registro de horario no encontrado para salida' });
+        }
+        const fechaEntrada = registro[0].fecha;
+        const horaEntrada = registro[0].hora_entrada;
+        const fechaHoraEntrada = moment(`${fechaEntrada} ${horaEntrada}`, 'YYYY-MM-DD HH:mm:ss');
+        const fechaHoraSalida = moment(`${fecha} ${hora}`, 'YYYY-MM-DD HH:mm:ss');
+        const diffMinutes = fechaHoraSalida.diff(fechaHoraEntrada, 'minutes');
+        const duracionStr = `${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`;
+
         await pool.query(
-          'UPDATE control_horarios SET hora_salida = ?, duracion = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
-          [hora, hora, openRecord[0].id]
+          'UPDATE control_horarios SET hora_salida = ?, duracion = ? WHERE id = ?',
+          [hora, duracionStr, openRecord[0].id]
         );
         return res.json({ message: 'Salida registrada', empleadoId, fecha, hora, registroId: openRecord[0].id });
       } else {
