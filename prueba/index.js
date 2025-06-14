@@ -159,7 +159,13 @@ app.post('/api/registro-asistencia', async (req, res) => {
       return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora });
     }
   } catch (error) {
-    console.error('Error al registrar asistencia:', error);
+    console.error('Error al registrar asistencia:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      sqlMessage: error.sqlMessage,
+      sql: error.sql
+    });
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
