@@ -732,6 +732,7 @@ app.post('/api/asistencia/rfid', async (req, res) => {
 
     const timestamp = moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss');
     const horaActual = moment().tz(TIMEZONE).format('HH:mm:ss');
+    const fechaActual = moment().tz(TIMEZONE).format('YYYY-MM-DD');
 
     // 1. Registrar el acceso en accesos (equivalente a rfid_registros)
     const [accesoResult] = await pool.query(
@@ -762,16 +763,29 @@ app.post('/api/asistencia/rfid', async (req, res) => {
 
     const usuarioData = usuario[0];
 
-    // 3. Determinar si es entrada o salida
-    const [ultimoRegistro] = await pool.query(`
-      SELECT tipo_registro 
+    // 3. Buscar registros del día actual para determinar si es entrada o salida
+    const [registrosHoy] = await pool.query(`
+      SELECT tipo_registro, timestamp 
       FROM control_horarios 
-      WHERE usuario_id = ?
-      ORDER BY timestamp DESC 
-      LIMIT 1
-    `, [usuarioData.id]);
+      WHERE usuario_id = ? AND DATE(timestamp) = ?
+      ORDER BY timestamp DESC
+    `, [usuarioData.id, fechaActual]);
 
-    const esEntrada = ultimoRegistro.length === 0 || ultimoRegistro[0].tipo_registro === 'salida';
+    // Determinar si es entrada o salida
+    let esEntrada = true;
+    let ultimaEntrada = null;
+    
+    if (registrosHoy.length > 0) {
+      // Verificar si el último registro es una entrada sin salida
+      const ultimoRegistro = registrosHoy[0];
+      esEntrada = ultimoRegistro.tipo_registro === 'salida';
+      
+      // Si el último registro es una entrada, guardamos su timestamp
+      if (!esEntrada) {
+        ultimaEntrada = ultimoRegistro.timestamp;
+      }
+    }
+
     const tipoRegistro = esEntrada ? 'entrada' : 'salida';
 
     // 4. Insertar en control_horarios
@@ -782,26 +796,32 @@ app.post('/api/asistencia/rfid', async (req, res) => {
       es_registrado: 1
     };
 
-    if (esEntrada && usuarioData.hora_inicio1) {
-      // Calcular diferencia para entrada
-      const horaReferencia = determinarHoraReferencia(usuarioData, horaActual);
-      horarioData.diferencia_tiempo = calcularDiferencia(horaReferencia, horaActual);
-      horarioData.estado = determinarEstado(horarioData.diferencia_tiempo);
-    } else if (!esEntrada) {
-      // Calcular duración para salida
-      const [entrada] = await pool.query(`
-        SELECT timestamp 
-        FROM control_horarios 
-        WHERE usuario_id = ? AND tipo_registro = 'entrada'
-        ORDER BY timestamp DESC 
-        LIMIT 1
-      `, [usuarioData.id]);
+    // Variables para la respuesta
+    let diferenciaTiempo = null;
+    let duracionTurno = null;
+    let estado = null;
 
-      if (entrada.length > 0) {
-        horarioData.duracion = calcularDuracion(
-          moment(entrada[0].timestamp).format('HH:mm:ss'),
+    if (esEntrada) {
+      // Calcular diferencia para entrada
+      if (usuarioData.hora_inicio1) {
+        const horaReferencia = determinarHoraReferencia(usuarioData, horaActual);
+        diferenciaTiempo = calcularDiferencia(horaReferencia, horaActual);
+        estado = determinarEstado(diferenciaTiempo);
+        horarioData.diferencia_tiempo = diferenciaTiempo;
+        horarioData.estado = estado;
+      }
+    } else {
+      // Calcular duración del turno si es salida
+      if (ultimaEntrada) {
+        duracionTurno = calcularDuracion(
+          moment(ultimaEntrada).format('HH:mm:ss'),
           horaActual
         );
+        horarioData.duracion = duracionTurno;
+        
+        // También podemos calcular horas trabajadas exactas
+        const horasTrabajadas = moment.duration(moment(horaActual, 'HH:mm:ss').diff(moment(ultimaEntrada).format('HH:mm:ss'), 'HH:mm:ss'));
+        horarioData.horas_trabajadas = horasTrabajadas.asHours().toFixed(2);
       }
     }
 
@@ -820,18 +840,52 @@ app.post('/api/asistencia/rfid', async (req, res) => {
       [usuarioData.id, horarioResult.insertId, accesoResult.insertId]
     );
 
-    // Respuesta exitosa
-    return res.status(201).json({
+    // 6. Si es salida, actualizar el registro de entrada con la duración
+    if (!esEntrada && ultimaEntrada) {
+      await pool.query(
+        `UPDATE control_horarios SET 
+            duracion = ?,
+            horas_trabajadas = ?
+         WHERE usuario_id = ? AND timestamp = ? AND tipo_registro = 'entrada'`,
+        [duracionTurno, horarioData.horas_trabajadas, usuarioData.id, ultimaEntrada]
+      );
+    }
+
+    // Respuesta mejorada
+    const response = {
       success: true,
       registro: {
         tipo: tipoRegistro,
         usuario: usuarioData.nombre_completo || `${usuarioData.nombre} ${usuarioData.apellido}`,
         timestamp: timestamp,
-        diferencia: horarioData.diferencia_tiempo,
-        duracion: horarioData.duracion,
-        estado: horarioData.estado
+        diferencia: diferenciaTiempo,
+        duracion: duracionTurno,
+        estado: estado,
+        horas_trabajadas: horarioData.horas_trabajadas,
+        pendiente_salida: esEntrada // Indica si hay una entrada pendiente de salida
       }
-    });
+    };
+
+    // Si es entrada, verificar si hay salidas pendientes de días anteriores
+    if (esEntrada) {
+      const [salidasPendientes] = await pool.query(`
+        SELECT COUNT(*) as pendientes 
+        FROM control_horarios 
+        WHERE usuario_id = ? AND tipo_registro = 'entrada' AND 
+              DATE(timestamp) < ? AND 
+              NOT EXISTS (
+                SELECT 1 FROM control_horarios 
+                WHERE usuario_id = ? AND tipo_registro = 'salida' AND 
+                      DATE(timestamp) = DATE(control_horarios.timestamp)
+              )
+      `, [usuarioData.id, fechaActual, usuarioData.id]);
+
+      if (salidasPendientes[0].pendientes > 0) {
+        response.alert = `Tienes ${salidasPendientes[0].pendientes} salidas pendientes de días anteriores`;
+      }
+    }
+
+    return res.status(201).json(response);
 
   } catch (error) {
     console.error('Error en registro RFID:', error);
@@ -842,12 +896,19 @@ app.post('/api/asistencia/rfid', async (req, res) => {
   }
 });
 
-// Funciones auxiliares
+// Funciones auxiliares mejoradas
 function determinarHoraReferencia(usuario, horaActual) {
+  if (!usuario.hora_inicio1) return null;
+  
   const actual = moment(horaActual, 'HH:mm:ss');
   const entrada1 = moment(usuario.hora_inicio1, 'HH:mm:ss');
+  
+  // Si solo tiene un horario de entrada
+  if (!usuario.hora_inicio2) {
+    return usuario.hora_inicio1;
+  }
+  
   const entrada2 = moment(usuario.hora_inicio2, 'HH:mm:ss');
-
   const diff1 = actual.diff(entrada1, 'minutes');
   const diff2 = actual.diff(entrada2, 'minutes');
 
@@ -857,6 +918,8 @@ function determinarHoraReferencia(usuario, horaActual) {
 }
 
 function calcularDiferencia(referencia, actual) {
+  if (!referencia) return 'Sin horario de referencia';
+  
   const ref = moment(referencia, 'HH:mm:ss');
   const act = moment(actual, 'HH:mm:ss');
   const minutos = act.diff(ref, 'minutes');
@@ -867,15 +930,36 @@ function calcularDiferencia(referencia, actual) {
 }
 
 function determinarEstado(diferencia) {
-  const minutosTarde = parseInt(diferencia) || 0;
+  if (typeof diferencia !== 'string') return 'Presente';
+  
+  const minutosMatch = diferencia.match(/(\d+) min tarde/);
+  if (!minutosMatch) return 'Presente';
+  
+  const minutosTarde = parseInt(minutosMatch[1]);
   return minutosTarde > 5 ? 'Tarde' : 'Presente';
 }
 
 function calcularDuracion(inicio, fin) {
-  const minutos = moment(fin, 'HH:mm:ss').diff(moment(inicio, 'HH:mm:ss'), 'minutes');
-  const horas = Math.floor(minutos / 60);
-  const mins = minutos % 60;
-  return `${horas}h ${mins}m`;
+  const inicioMoment = moment(inicio, 'HH:mm:ss');
+  const finMoment = moment(fin, 'HH:mm:ss');
+  
+  // Calcular diferencia en milisegundos
+  const diffMs = finMoment.diff(inicioMoment);
+  
+  // Convertir a horas, minutos, segundos
+  const duration = moment.duration(diffMs);
+  const horas = Math.floor(duration.asHours());
+  const minutos = duration.minutes();
+  const segundos = duration.seconds();
+  
+  // Formatear según necesidad
+  if (horas > 0) {
+    return `${horas}h ${minutos}m ${segundos}s`;
+  } else if (minutos > 0) {
+    return `${minutos}m ${segundos}s`;
+  } else {
+    return `${segundos}s`;
+  }
 }
 
 app.get('/api/asistencia/rfid', async (req, res) => {
