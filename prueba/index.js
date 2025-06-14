@@ -255,23 +255,14 @@ app.delete('/api/usuarios/:uid', async (req, res) => {
 app.get('/api/accesos', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT r.id, r.uid, r.usuario_id, r.timestamp, r.es_registrado, u.nombre_completo AS nombre
+      SELECT r.id, r.uid, r.usuario_id, DATE_FORMAT(r.timestamp, '%Y-%m-%d %H:%i:%s') AS timestamp, r.es_registrado, u.nombre_completo AS nombre
       FROM accesos r
       LEFT JOIN usuarios u ON r.usuario_id = u.uid
       ORDER BY r.timestamp DESC
       LIMIT 100
     `);
 
-    // Convertir timestamp a zona America/Bogota y formatear
-    const formattedRows = rows.map(row => {
-      const momentTimestamp = moment.tz(row.timestamp, 'America/Bogota');
-      return {
-        ...row,
-        timestamp: momentTimestamp.format('YYYY-MM-DD HH:mm:ss')
-      };
-    });
-
-    res.json(formattedRows);
+    res.json(rows);
   } catch (error) {
     console.error('Error al obtener registros de acceso:', error);
     res.status(500).json({ error: 'Error interno del servidor', detalle: error });
