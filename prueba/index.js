@@ -137,29 +137,29 @@ app.post('/api/registro-asistencia', async (req, res) => {
       [empleadoId, fecha]
     );
 
-    if (openRecord.length > 0) {
-      // Registrar salida
-      await pool.query(
-        'UPDATE control_horarios SET hora_salida = ?, duracion = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
-        [hora, hora, openRecord[0].id]
-      );
-      return res.json({ message: 'Salida registrada', empleadoId, fecha, hora });
-    } else {
-      // Registrar entrada
-      const [result] = await pool.query(
-        'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          tipo === 'usuario' ? empleadoId : null,
-          tipo === 'remoto' ? empleadoId : null,
-          tipo,
-          fecha,
-          hora,
-          null,
-          '0h 0m'
-        ]
-      );
-      return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora });
-    }
+      if (openRecord.length > 0) {
+        // Registrar salida
+        await pool.query(
+          'UPDATE control_horarios SET hora_salida = ?, duracion = TIMESTAMPDIFF(MINUTE, hora_entrada, ?) WHERE id = ?',
+          [hora, hora, openRecord[0].id]
+        );
+        return res.json({ message: 'Salida registrada', empleadoId, fecha, hora, registroId: openRecord[0].id });
+      } else {
+        // Registrar entrada
+        const [result] = await pool.query(
+          'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida, duracion) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            tipo === 'usuario' ? empleadoId : null,
+            tipo === 'remoto' ? empleadoId : null,
+            tipo,
+            fecha,
+            hora,
+            null,
+            '0h 0m'
+          ]
+        );
+        return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora, registroId: result.insertId });
+      }
   } catch (error) {
     console.error('Error al registrar asistencia:', {
       message: error.message,
