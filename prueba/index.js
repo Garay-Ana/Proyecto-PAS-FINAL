@@ -147,13 +147,14 @@ app.post('/api/registro-asistencia', async (req, res) => {
     } else {
       // Registrar entrada
       const [result] = await pool.query(
-        'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO control_horarios (empleado_id, empleado_remoto_id, tipo_empleado, fecha, hora_entrada, hora_salida) VALUES (?, ?, ?, ?, ?, ?)',
         [
           tipo === 'usuario' ? empleadoId : null,
           tipo === 'remoto' ? empleadoId : null,
           tipo,
           fecha,
-          hora
+          hora,
+          null
         ]
       );
       return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora });
