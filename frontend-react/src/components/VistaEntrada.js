@@ -17,7 +17,7 @@ function VistaEntrada({ usuario, onLogout }) {
         setMensaje('Error al registrar entrada: ' + errorData.error);
       } else {
         const data = await response.json();
-        setMensaje('✅ Entrada registrada correctamente. ID: ' + data.id);
+        setMensaje('✅ Entrada registrada correctamente. ID: ' + data.registroId);
       }
     } catch (error) {
       setMensaje('❌ Error en la conexión: ' + error.message);

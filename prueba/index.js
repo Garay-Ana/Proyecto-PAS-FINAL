@@ -170,6 +170,16 @@ app.post('/api/registro-asistencia', async (req, res) => {
             '0h 0m'
           ]
         );
+
+        // Insertar en entradas_remotos si es empleado remoto
+        if (tipo === 'remoto') {
+          const fechaHora = `${fecha} ${hora}`;
+          await pool.query(
+            'INSERT INTO entradas_remotos (usuario_id, fecha_hora) VALUES (?, ?)',
+            [empleadoId, fechaHora]
+          );
+        }
+
         return res.json({ message: 'Entrada registrada', empleadoId, fecha, hora, registroId: result.insertId });
       }
   } catch (error) {
