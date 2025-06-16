@@ -14,6 +14,10 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [isOnline, setIsOnline] = useState(true);
 
+  // Estados para filtro de rango de fechas
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+
   const navigate = useNavigate();
 
   function updateStats(data) {
@@ -84,7 +88,21 @@ function Dashboard() {
     };
   }, []);
 
-  const stats = updateStats(data);
+  // Filtrar datos según rango de fechas
+  const filteredData = data.filter(entry => {
+    if (!filterStartDate && !filterEndDate) return true;
+    const entryDate = new Date(entry.timestamp || entry.fecha_hora);
+    if (filterStartDate && entryDate < new Date(filterStartDate)) return false;
+    if (filterEndDate) {
+      // Para incluir todo el día final, se añade 1 día menos 1 ms
+      const endDate = new Date(filterEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (entryDate > endDate) return false;
+    }
+    return true;
+  });
+
+  const stats = updateStats(filteredData);
 
   const handleGoHome = () => {
     navigate('/home');
@@ -102,6 +120,41 @@ function Dashboard() {
           >
             Regresar a Inicio
           </button>
+        </div>
+
+        {/* Controles para filtro de rango de fechas */}
+        <div className="flex space-x-4 my-4">
+          <div>
+            <label htmlFor="startDate" className="block font-semibold mb-1">Fecha inicio:</label>
+            <input
+              type="date"
+              id="startDate"
+              value={filterStartDate}
+              onChange={e => setFilterStartDate(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1"
+            />
+          </div>
+          <div>
+            <label htmlFor="endDate" className="block font-semibold mb-1">Fecha fin:</label>
+            <input
+              type="date"
+              id="endDate"
+              value={filterEndDate}
+              onChange={e => setFilterEndDate(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setFilterStartDate('');
+                setFilterEndDate('');
+              }}
+              className="bg-gray-400 hover:bg-gray-500 text-white font-semibold px-4 py-1 rounded"
+            >
+              Limpiar filtro
+            </button>
+          </div>
         </div>
 
         <div className="my-8">
@@ -123,7 +176,7 @@ function Dashboard() {
 
         <div className="mb-10">
           <DataSection
-            data={data}
+            data={filteredData}
             isLoading={isLoading}
             error={error}
           />

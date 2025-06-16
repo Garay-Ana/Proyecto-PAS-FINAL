@@ -399,42 +399,79 @@ app.get('/api/tiempos', async (req, res) => {
 });
 
 // Procesar entrada o salida
+// Nuevo endpoint simplificado
 app.post('/api/tiempos/process', async (req, res) => {
-  const { uid, timestamp } = req.body;
-  if (!uid || !timestamp) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios: uid y timestamp' });
+  const { uid } = req.body;
+  
+  if (!uid) {
+    return res.status(400).json({ 
+      error: 'UID es requerido',
+      status: 'UID_FALTANTE'
+    });
   }
+
   try {
-    // Buscar registro abierto (sin salida) para el uid
+    // Generar timestamp automático con zona horaria de Bogotá
+    const timestamp = moment().tz('America/Bogota').format('YYYY-MM-DD HH:mm:ss');
+    const fecha = moment().tz('America/Bogota').format('YYYY-MM-DD');
+    const hora = moment().tz('America/Bogota').format('HH:mm:ss');
+
+    // 1. Buscar registro abierto (sin salida) para el UID
     const [openRecords] = await pool.query(
       'SELECT * FROM tiempos WHERE uid = ? AND salida IS NULL ORDER BY entrada DESC LIMIT 1',
       [uid]
     );
 
     if (openRecords.length === 0) {
-      // No hay registro abierto, insertar nuevo con entrada = timestamp
+      // No hay registro abierto → crear nueva entrada
       const [result] = await pool.query(
         'INSERT INTO tiempos (uid, entrada, salida) VALUES (?, ?, NULL)',
         [uid, timestamp]
       );
+      
       const [newRecord] = await pool.query('SELECT * FROM tiempos WHERE id = ?', [result.insertId]);
-      res.status(201).json(newRecord[0]);
+      
+      return res.status(201).json({
+        status: 'ENTRADA_REGISTRADA',
+        registro: newRecord[0],
+        mensaje: `Entrada registrada a las ${hora}`
+      });
     } else {
-      // Hay registro abierto, actualizar salida con timestamp
+      // Hay registro abierto → registrar salida
       const openRecord = openRecords[0];
+      
+      // Calcular duración en minutos
+      const entrada = moment(openRecord.entrada);
+      const salida = moment(timestamp);
+      const duracionMinutos = salida.diff(entrada, 'minutes');
+      const duracionFormato = `${Math.floor(duracionMinutos / 60)}h ${duracionMinutos % 60}m`;
+      
       await pool.query(
-        'UPDATE tiempos SET salida = ? WHERE id = ?',
-        [timestamp, openRecord.id]
+        'UPDATE tiempos SET salida = ?, duracion = ? WHERE id = ?',
+        [timestamp, duracionFormato, openRecord.id]
       );
+      
       const [updatedRecord] = await pool.query('SELECT * FROM tiempos WHERE id = ?', [openRecord.id]);
-      res.json(updatedRecord[0]);
+      
+      return res.json({
+        status: 'SALIDA_REGISTRADA',
+        registro: updatedRecord[0],
+        mensaje: `Salida registrada después de ${duracionFormato}`
+      });
     }
   } catch (error) {
-    console.error('Error al procesar tiempos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Error en process:', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    
+    return res.status(500).json({ 
+      error: 'Error interno del servidor',
+      detalles: process.env.NODE_ENV === 'development' ? error.message : null
+    });
   }
 });
-
 // Endpoints para gestión de horarios
 
 // Obtener horarios por empleado

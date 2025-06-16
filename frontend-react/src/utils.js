@@ -1,7 +1,13 @@
 export function formatDate(timestamp) {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleString('es-ES', { timeZone: 'America/Bogota', hour12: false });
+  // Asegurar que el timestamp se interprete como UTC añadiendo 'Z' si no está presente
+  let ts = timestamp;
+  if (!ts.endsWith('Z')) {
+    ts = ts + 'Z';
+  }
+  const date = new Date(ts);
+  // Mostrar la fecha y hora en UTC
+  return date.toLocaleString('es-ES', { timeZone: 'UTC', hour12: false });
 }
 
 export function getTimeAgo(timestamp) {

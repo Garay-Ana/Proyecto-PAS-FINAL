@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDate } from '../utils';
 
 function DataSection({ data, isLoading, error }) {
   if (isLoading) {
@@ -30,7 +31,8 @@ function DataSection({ data, isLoading, error }) {
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>{entry.apellido || '-'}</td>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>{entry.uid || '-'}</td>
             <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-              {new Date(entry.timestamp || entry.fecha_hora).toLocaleString('es-ES', { timeZone: 'America/Bogota' })}
+              {formatDate(entry.timestamp || entry.fecha_hora)} <br />
+              <small style={{ color: 'gray' }}>{entry.timestamp || entry.fecha_hora}</small>
             </td>
           </tr>
         ))}
