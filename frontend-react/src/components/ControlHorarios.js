@@ -12,7 +12,7 @@ const ControlHorarios = () => {
   const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchId, setSearchId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     empleado_id: '',
@@ -22,11 +22,29 @@ const ControlHorarios = () => {
     hora_salida: '',
   });
   const [editId, setEditId] = useState(null);
+  const [filterDate, setFilterDate] = useState('');
 
+  // Cargar datos iniciales
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        await fetchEmpleados();
+        await fetchHorarios();
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Establecer primer empleado por defecto
   useEffect(() => {
     if (!form.empleado_id && empleados.length > 0) {
       const firstEmp = empleados[0];
-      setForm((prev) => ({
+      setForm(prev => ({
         ...prev,
         empleado_id: firstEmp.id || firstEmp.uid || '',
         tipo_empleado: firstEmp.tipo_empleado || 'usuario',
@@ -34,311 +52,390 @@ const ControlHorarios = () => {
     }
   }, [empleados, form.empleado_id]);
 
+  // Obtener horarios
   const fetchHorarios = async () => {
-    setLoading(true);
     try {
       const res = await fetch(API_URL);
       if (!res.ok) throw new Error('Error al cargar horarios');
       const data = await res.json();
 
-      const dataConNombres = data.map((horario) => {
-        const empleado = empleados.find(
-          (emp) =>
-            (emp.id === horario.empleado_id || emp.uid === horario.empleado_id || emp.id === horario.empleado_remoto_id) &&
-            emp.tipo_empleado === horario.tipo_empleado
+      const dataConNombres = data.map(horario => {
+        const empleado = empleados.find(emp => 
+          (emp.id === horario.empleado_id || emp.uid === horario.empleado_id || emp.id === horario.empleado_remoto_id) &&
+          emp.tipo_empleado === horario.tipo_empleado
         );
+        
         return {
           ...horario,
-          nombre_completo: horario.nombre_empleado || (empleado
-            ? empleado.nombre_completo || empleado.nombre || empleado.nombre_usuario || ''
-            : ''),
+          nombre_completo: horario.nombre_empleado || 
+            (empleado ? empleado.nombre_completo || empleado.nombre || empleado.nombre_usuario || '' : '')
         };
       });
 
       setHorarios(dataConNombres);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   };
 
+  // Obtener empleados
   const fetchEmpleados = async () => {
     try {
       const [usuariosRes, remotosRes] = await Promise.all([
         fetch(USERS_API_URL),
         fetch(REMOTE_EMPLOYEES_API_URL),
       ]);
-      if (!usuariosRes.ok) throw new Error('Error al cargar usuarios');
-      if (!remotosRes.ok) throw new Error('Error al cargar empleados remotos');
+      if (!usuariosRes.ok || !remotosRes.ok) throw new Error('Error al cargar empleados');
+      
       const usuariosData = await usuariosRes.json();
       const remotosData = await remotosRes.json();
-      const usuariosConTipo = usuariosData.map((u) => ({ ...u, tipo_empleado: 'usuario' }));
-      const remotosConTipo = remotosData.map((r) => ({ ...r, tipo_empleado: 'remoto' }));
-      const combinedEmpleados = [...usuariosConTipo, ...remotosConTipo];
-      setEmpleados(combinedEmpleados);
+      
+      const combined = [
+        ...usuariosData.map(u => ({ ...u, tipo_empleado: 'usuario' })),
+        ...remotosData.map(r => ({ ...r, tipo_empleado: 'remoto' }))
+      ];
+      
+      setEmpleados(combined);
     } catch (err) {
       setError(err.message);
     }
   };
 
-  useEffect(() => {
-    fetchHorarios();
-    fetchEmpleados();
-  }, []);
-
+  // Manejar cambios en el formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
     if (name === 'empleado_id') {
       const [id, tipo] = value.split('::');
-      console.log('handleChange empleado_id:', id, 'tipo_empleado:', tipo);
-      setForm((prev) => ({ ...prev, empleado_id: id, tipo_empleado: tipo }));
-    } else if (name === 'searchId') {
-      setSearchId(value);
+      setForm(prev => ({ ...prev, empleado_id: id, tipo_empleado: tipo }));
+    } else if (name === 'searchTerm') {
+      setSearchTerm(value);
+    } else if (name === 'filterDate') {
+      setFilterDate(value);
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
+  // Calcular duración entre horas
   const calcularDuracion = (entrada, salida) => {
     const [h1, m1] = entrada.split(':').map(Number);
     const [h2, m2] = salida.split(':').map(Number);
+    
     let minutos = (h2 * 60 + m2) - (h1 * 60 + m1);
     if (minutos < 0) minutos += 24 * 60;
+    
     const horas = Math.floor(minutos / 60);
     const mins = minutos % 60;
     return `${horas.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m`;
   };
 
+  // Formatear fecha para mostrar
+  const formatFecha = (fechaStr) => {
+    if (!fechaStr) return '';
+    
+    const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    let fecha;
+    
+    try {
+      if (typeof fechaStr === 'string') {
+        const [year, month, day] = fechaStr.includes('T') 
+          ? fechaStr.split('T')[0].split('-')
+          : fechaStr.split('-');
+        fecha = new Date(year, month - 1, day);
+      } else if (fechaStr instanceof Date) {
+        fecha = fechaStr;
+      } else {
+        return '';
+      }
+      
+      const diaSemana = diasSemana[fecha.getDay()];
+      return `${diaSemana}, ${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`;
+    } catch (e) {
+      console.error('Error formateando fecha:', e);
+      return '';
+    }
+  };
+
+  // Función para formatear la hora a HH:MM:SS
+  const formatHora = (hora) => {
+    if (!hora) return '00:00:00';
+    // Si ya tiene segundos, devolver tal cual
+    if (hora.split(':').length === 3) return hora;
+    // Si solo tiene horas y minutos, agregar segundos
+    if (hora.split(':').length === 2) return `${hora}:00`;
+    // Si solo tiene horas (caso improbable)
+    if (hora.split(':').length === 1) return `${hora}:00:00`;
+    return hora;
+  };
+
+  // Enviar formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validaciones
     if (!form.empleado_id) {
-      setError('Debe seleccionar un empleado válido antes de guardar.');
+      setError('Seleccione un empleado válido');
       return;
     }
     if (!form.fecha || !form.hora_entrada || !form.hora_salida) {
-      setError('Debe completar fecha, hora de entrada y hora de salida.');
+      setError('Complete todos los campos obligatorios');
       return;
     }
-    const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
-
-    const formatHora = (hora) => {
-      if (hora.length === 5) {
-        return hora + ':00';
-      }
-      return hora;
-    };
-
-    const hora_entrada_formateada = formatHora(form.hora_entrada);
-    const hora_salida_formateada = formatHora(form.hora_salida);
 
     try {
-      let payload = {
+      const duracion = calcularDuracion(form.hora_entrada, form.hora_salida);
+      
+      const payload = {
         tipo_empleado: form.tipo_empleado,
-        fecha: form.fecha ? new Date(form.fecha).toISOString().split('T')[0] : '',
-        hora_entrada: hora_entrada_formateada,
-        hora_salida: hora_salida_formateada,
-        duracion: duracion,
+        fecha: new Date(form.fecha).toISOString().split('T')[0],
+        hora_entrada: formatHora(form.hora_entrada),
+        hora_salida: formatHora(form.hora_salida),
+        duracion,
+        ...(form.tipo_empleado === 'remoto' 
+          ? { empleado_remoto_id: Number(form.empleado_id) }
+          : { empleado_id: Number(form.empleado_id) })
       };
-      if (form.tipo_empleado === 'remoto') {
-        payload.empleado_remoto_id = Number(form.empleado_id);
-      } else {
-        payload.empleado_id = Number(form.empleado_id);
+
+      const url = editId ? `${API_URL}/${editId}` : API_URL;
+      const method = editId ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || (editId ? 'Error al actualizar' : 'Error al crear'));
       }
-      console.log('Payload final a enviar:', payload);
-      let res;
-      if (editId) {
-        res = await fetch(`${API_URL}/${editId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch(`${API_URL}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
-      if (!res.ok) throw new Error('Error al guardar horario');
-      setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
-      setSearchId('');
-      setEditId(null);
-      setShowForm(false);
-      fetchHorarios();
+
+      resetForm();
+      await fetchHorarios();
     } catch (err) {
       setError(err.message);
     }
   };
 
+  // Resetear formulario
+  const resetForm = () => {
+    setForm({
+      empleado_id: empleados.length > 0 ? empleados[0].id || empleados[0].uid || '' : '',
+      tipo_empleado: 'usuario',
+      fecha: '',
+      hora_entrada: '',
+      hora_salida: '',
+    });
+    setEditId(null);
+    setSearchTerm('');
+    setError('');
+    setShowForm(false);
+  };
+
+  // Editar horario
   const handleEdit = (horario) => {
     setForm({
-      empleado_id: horario.empleado_id,
+      empleado_id: horario.empleado_id || horario.empleado_remoto_id || '',
       tipo_empleado: horario.tipo_empleado || 'usuario',
-      fecha: horario.fecha,
+      fecha: horario.fecha.split('T')[0], // Asegurarse de que solo tomamos la parte de la fecha
       hora_entrada: horario.hora_entrada,
       hora_salida: horario.hora_salida,
     });
-    setSearchId('');
     setEditId(horario.id);
     setShowForm(true);
   };
 
+  // Eliminar horario
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar este horario?')) return;
+    if (!window.confirm('¿Confirmar eliminación?')) return;
+    
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Error al eliminar horario');
-      fetchHorarios();
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar');
+      await fetchHorarios();
     } catch (err) {
       setError(err.message);
     }
   };
 
+  // Filtrar horarios
+  const filteredHorarios = horarios.filter(horario => {
+    const matchesSearch = searchTerm === '' || 
+      horario.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (horario.empleado_id && horario.empleado_id.toString().includes(searchTerm)) ||
+      (horario.empleado_remoto_id && horario.empleado_remoto_id.toString().includes(searchTerm));
+    
+    const matchesDate = filterDate === '' || 
+      (horario.fecha && horario.fecha.includes(filterDate));
+    
+    return matchesSearch && matchesDate;
+  });
+
   return (
     <div className="control-horarios-container">
-      <button className="back-button" onClick={() => navigate('/home')}>
-        ← Volver a Home
-      </button>
-      <h2>Control Horario</h2>
-      {error && <p className="error-message">Error: {error}</p>}
-      {loading ? (
-        <p>Cargando horarios...</p>
-      ) : (
-        <>
+      <div className="header-section">
+        <button className="back-button" onClick={() => navigate('/home')}>
+          ← Volver
+        </button>
+        <h2>Control de Horarios</h2>
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="controls-section">
+        <div className="search-filters">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o ID"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="date-filter"
+          />
           <button 
-            onClick={() => {
-              setShowForm(true);
-              setEditId(null);
-              setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
-            }} 
-            className="btn-registrar-horario"
+            onClick={() => setShowForm(true)}
+            className="add-button"
           >
-            Registrar Horario
+            + Nuevo Horario
           </button>
-          
-          {showForm && (
-            <div className="form-container">
-              <h3>{editId ? 'Editar Horario' : 'Registrar Horas'}</h3>
-              <form onSubmit={handleSubmit} className="control-horarios-form">
-                <input
-                  type="text"
-                  name="searchId"
-                  placeholder="Buscar empleado por ID"
-                  value={searchId}
-                  onChange={handleChange}
-                  className="search-id-input"
-                />
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="form-modal">
+          <div className="form-content">
+            <h3>{editId ? 'Editar Horario' : 'Nuevo Horario'}</h3>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>Empleado:</label>
                 <select
                   name="empleado_id"
                   value={`${form.empleado_id}::${form.tipo_empleado}`}
                   onChange={handleChange}
                   required
                 >
-                  <option value="" disabled>Seleccione un empleado</option>
-                  {empleados
-                    .filter((emp) => {
-                      if (!searchId) return true;
-                      const idEmp = emp.id || emp.uid || '';
-                      return idEmp && idEmp.toString().toLowerCase().includes(searchId.toLowerCase());
-                    })
-                    .map((emp) => (
-                      <option key={emp.id || emp.uid} value={`${emp.id || emp.uid}::${emp.tipo_empleado}`}>
-                        {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
-                      </option>
-                    ))}
+                  {empleados.map(emp => (
+                    <option 
+                      key={`${emp.id || emp.uid}-${emp.tipo_empleado}`} 
+                      value={`${emp.id || emp.uid}::${emp.tipo_empleado}`}
+                    >
+                      {emp.nombre_completo || emp.nombre || emp.nombre_usuario}
+                    </option>
+                  ))}
                 </select>
-                <input
-                  type="date"
-                  name="fecha"
-                  value={form.fecha}
-                  onChange={handleChange}
-                  required
-                />
-                <input
-                  type="time"
-                  name="hora_entrada"
-                  value={form.hora_entrada}
-                  onChange={handleChange}
-                  required
-                />
-                <input
-                  type="time"
-                  name="hora_salida"
-                  value={form.hora_salida}
-                  onChange={handleChange}
-                  required
-                />
-                <div className="form-buttons">
-                  <button type="submit" className="control-horarios-submit">
-                    {editId ? 'Guardar cambios' : 'Añadir fichaje'}
-                  </button>
-                  <button
-                    type="button"
-                    className="control-horarios-cancel"
-                    onClick={() => {
-                      setForm({ empleado_id: '', tipo_empleado: 'usuario', fecha: '', hora_entrada: '', hora_salida: '' });
-                      setEditId(null);
-                      setError('');
-                      setSearchId('');
-                      setShowForm(false);
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+              </div>
 
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Fecha:</label>
+                  <input
+                    type="date"
+                    name="fecha"
+                    value={form.fecha}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Hora Entrada:</label>
+                  <input
+                    type="time"
+                    name="hora_entrada"
+                    value={form.hora_entrada}
+                    onChange={handleChange}
+                    required
+                    step="1" // Permite segundos en algunos navegadores
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Hora Salida:</label>
+                  <input
+                    type="time"
+                    name="hora_salida"
+                    value={form.hora_salida}
+                    onChange={handleChange}
+                    required
+                    step="1" // Permite segundos en algunos navegadores
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="submit-button">
+                  {editId ? 'Guardar Cambios' : 'Registrar'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={resetForm}
+                  className="cancel-button"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="loading-indicator">Cargando...</div>
+      ) : (
+        <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Nombre</th>
+                <th>Empleado</th>
                 <th>Fecha</th>
-                <th>Hora entrada</th>
-                <th>Hora salida</th>
+                <th>Entrada</th>
+                <th>Salida</th>
                 <th>Duración</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {horarios.map((h) => (
-                <tr key={h.id}>
-                  <td>{h.nombre_completo}</td>
-                  <td>{(() => {
-                    if (!h.fecha) return '';
-                    const diasSemana = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-                    let year, month, day;
-                    if (typeof h.fecha === 'string') {
-                      const fechaStr = h.fecha.includes('T') ? h.fecha.split('T')[0] : h.fecha;
-                      [year, month, day] = fechaStr.split('-');
-                    } else if (h.fecha instanceof Date) {
-                      year = h.fecha.getFullYear();
-                      month = (h.fecha.getMonth() + 1).toString().padStart(2, '0');
-                      day = h.fecha.getDate().toString().padStart(2, '0');
-                    } else {
-                      return '';
-                    }
-                    if (!year || !month || !day) return '';
-                    const fechaObj = new Date(Number(year), Number(month) - 1, Number(day));
-                    const diaSemana = diasSemana[fechaObj.getDay()];
-                    return `${diaSemana}, ${day}/${month}/${year}`;
-                  })()}</td>
-                  <td>{h.hora_entrada}</td>
-                  <td>{h.hora_salida}</td>
-                  <td>{h.duracion}</td>
-                  <td>
-                    <button onClick={() => handleEdit(h)} className="btn-edit">Editar</button>
-                    <button onClick={() => handleDelete(h.id)} className="btn-delete">Eliminar</button>
+              {filteredHorarios.length > 0 ? (
+                filteredHorarios.map(horario => (
+                  <tr key={horario.id}>
+                    <td>{horario.nombre_completo}</td>
+                    <td>{formatFecha(horario.fecha)}</td>
+                    <td>{horario.hora_entrada}</td>
+                    <td>{horario.hora_salida}</td>
+                    <td>{horario.duracion}</td>
+                    <td className="actions-cell">
+                      <button 
+                        onClick={() => handleEdit(horario)}
+                        className="edit-button"
+                      >
+                        Editar
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(horario.id)}
+                        className="delete-button"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="no-results">
+                    No se encontraron horarios
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
-        </>
+        </div>
       )}
     </div>
   );
