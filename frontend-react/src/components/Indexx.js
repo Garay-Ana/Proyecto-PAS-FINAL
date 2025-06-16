@@ -12,7 +12,7 @@ const Indexx = () => {
   const [accessRecords, setAccessRecords] = useState([]);
   const [timeRecords, setTimeRecords] = useState([]);
   const [lastScannedUID, setLastScannedUID] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('usuarios');
   const [loading, setLoading] = useState({
     historial: false,
     users: false,
@@ -36,7 +36,7 @@ const Indexx = () => {
     rol: 'usuario',
   });
   const [userFormMessage, setUserFormMessage] = useState('');
-  const [userFormMessageType, setUserFormMessageType] = useState(''); // 'error' or 'success'
+  const [userFormMessageType, setUserFormMessageType] = useState('');
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editUserForm, setEditUserForm] = useState({
     uid: '',
@@ -53,6 +53,55 @@ const Indexx = () => {
   });
   const [assignMessage, setAssignMessage] = useState('');
   const [assignMessageType, setAssignMessageType] = useState('');
+
+  // Función para formatear la fecha
+  const formatFecha = (fecha) => {
+    if (!fecha) return '-';
+    try {
+      // Si la fecha ya está en formato local (contiene /), devolverla tal cual
+      if (fecha.includes('/')) return fecha;
+      
+      // Para fechas en formato ISO (YYYY-MM-DD)
+      if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year}`;
+      }
+      
+      // Para fechas en formato ISO con tiempo (YYYY-MM-DDTHH:MM:SS)
+      if (fecha.includes('T')) {
+        const dateObj = new Date(fecha);
+        return dateObj.toLocaleDateString('es-ES');
+      }
+      
+      // Para otros formatos, devolver la fecha original
+      return fecha;
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return fecha;
+    }
+  };
+
+  // Función para formatear la hora
+  const formatHora = (hora) => {
+    if (!hora) return '-';
+    try {
+      // Si ya es solo la hora (HH:MM:SS o HH:MM)
+      if (hora.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+        return hora.length > 5 ? hora.substring(0, 5) : hora;
+      }
+      
+      // Si viene en formato ISO con fecha (YYYY-MM-DDTHH:MM:SS)
+      if (hora.includes('T')) {
+        return hora.split('T')[1].substring(0, 5);
+      }
+      
+      // Para otros formatos, devolver la hora original
+      return hora;
+    } catch (error) {
+      console.error('Error al formatear hora:', error);
+      return hora;
+    }
+  };
 
   // Format date and time ago
   const formatDate = (dateString) => {
@@ -251,7 +300,6 @@ const Indexx = () => {
     e.preventDefault();
     const { uid, identificacion, nombre_completo, correo, telefono, rol } = editUserForm;
     if (!identificacion || !nombre_completo || !rol) {
-      // Show error message (could add state for edit form messages)
       return;
     }
     try {
@@ -264,13 +312,12 @@ const Indexx = () => {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Error al actualizar usuario');
       }
-      // Update local users data
       setUsersData((prev) =>
         prev.map((user) => (user.uid === uid ? { ...user, identificacion, nombre_completo, correo, telefono, rol } : user))
       );
       closeEditModal();
     } catch (error) {
-      // Show error message
+      console.error('Error al actualizar usuario:', error);
     }
   };
 
@@ -285,7 +332,7 @@ const Indexx = () => {
       }
       setUsersData((prev) => prev.filter((user) => user.uid !== uid));
     } catch (error) {
-      // Show error message
+      console.error('Error al eliminar usuario:', error);
     }
   };
 
@@ -355,145 +402,20 @@ const Indexx = () => {
       </div>
 
       <div className="tabs">
-        {/*
-        <div
-          className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => handleTabClick('dashboard')}
-        >
-          Dashboard
-        </div>
-        */}
         <div
           className={`tab ${activeTab === 'usuarios' ? 'active' : ''}`}
           onClick={() => handleTabClick('usuarios')}
         >
           Gestión de Usuarios
         </div>
-        <div
-          className={`tab ${activeTab === 'registros' ? 'active' : ''}`}
-          onClick={() => handleTabClick('registros')}
-        >
-          Registros de Acceso
-        </div>
+        
         <div
           className={`tab ${activeTab === 'tiempos' ? 'active' : ''}`}
           onClick={() => handleTabClick('tiempos')}
         >
-          Control de Tiempos
+          Control de Acceso
         </div>
       </div>
-
-      {/*
-      {activeTab === 'dashboard' && (
-        <div className="tab-content active" id="dashboard">
-          <div className="stats-container">
-            <div className="stat-card">
-              <div className="stat-number" id="totalEntries">{historialData.length}</div>
-              <div className="stat-label">Total de Entradas</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number" id="todayEntries">
-                {historialData.filter(entry => {
-                  const today = new Date().toDateString();
-                  return new Date(entry.timestamp).toDateString() === today;
-                }).length}
-              </div>
-              <div className="stat-label">Entradas Hoy</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number" id="uniqueCards">
-                {[...new Set(historialData.map(entry => entry.uid))].length}
-              </div>
-              <div className="stat-label">Tarjetas Únicas</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number" id="lastEntry">
-                {historialData.length > 0
-                  ? new Date(historialData[historialData.length - 1].timestamp).toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : '--:--'}
-              </div>
-              <div className="stat-label">Última Entrada</div>
-            </div>
-          </div>
-
-          <div className="controls">
-            <div className="status-indicator">
-              <div className={`status-dot ${true ? '' : 'offline'}`} id="statusDot"></div>
-              <span id="statusText">{true ? 'Conectado' : ''}</span>
-            </div>
-            <button className="btn" onClick={loadData}>
-              <span>🔄</span> Actualizar Datos
-            </button>
-          </div>
-
-          <div className="data-section">
-            <h2 className="section-title">📊 Últimos Registros</h2>
-
-            {loading.historial && (
-              <div className="loading">
-                <div className="spinner"></div>
-                <span>Cargando datos...</span>
-              </div>
-            )}
-
-            {errorMessages.historial && (
-              <div className="error-message">⚠️ {errorMessages.historial}</div>
-            )}
-
-            {!loading.historial && !errorMessages.historial && (
-              <>
-                {historialData.length === 0 ? (
-                  <div className="no-data">
-                    <p>📭 No hay datos disponibles</p>
-                    <p>Las entradas aparecerán aquí cuando se detecten tarjetas RFID</p>
-                  </div>
-                ) : (
-                  <div className="table-container">
-                    <table id="dataTable">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>UID de Tarjeta</th>
-                          <th>Usuario</th>
-                          <th>Fecha y Hora</th>
-                          <th>Tiempo Transcurrido</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...historialData]
-                          .slice()
-                          .reverse()
-                          .slice(0, 10)
-                          .map((entry, index) => {
-                            const user = usersData.find((u) => u.uid === entry.uid);
-                            const userName = user
-                              ? `${user.nombre_completo} (${user.identificacion})`
-                              : 'Usuario no registrado';
-                            return (
-                              <tr key={index}>
-                                <td>{index + 1}</td>
-                                <td>
-                                  <span className="uid-code">{entry.uid}</span>
-                                </td>
-                                <td>{userName}</td>
-                                <td className="timestamp">{formatDate(entry.timestamp)}</td>
-                                <td>{getTimeAgo(entry.timestamp)}</td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-      */}
 
       {activeTab === 'usuarios' && (
         <div className="tab-content active" id="usuarios">
@@ -684,84 +606,12 @@ const Indexx = () => {
         </div>
       )}
 
-      {activeTab === 'registros' && (
-        <div className="tab-content active" id="registros">
-          <div className="data-section">
-            <h2 className="section-title">📝 Historial Completo de Accesos</h2>
-
-            <div className="controls">
-              <div className="status-indicator">
-                <div className={`status-dot ${true ? '' : 'offline'}`} id="statusDotRegistros"></div>
-                <span id="statusTextRegistros">{true ? 'Conectado' : ''}</span>
-              </div>
-              <button className="btn" onClick={loadAccessRecords}>
-                <span>🔄</span> Actualizar Registros
-              </button>
-            </div>
-
-            <div className="table-container">
-              <div id="loadingRecords" className="loading">
-                <div className="spinner"></div>
-                <span>Cargando registros...</span>
-              </div>
-
-              {errorMessages.accesos && <div className="error-message">⚠️ {errorMessages.accesos}</div>}
-
-              {!loading.accesos && !errorMessages.accesos && (
-                <>
-                  {accessRecords.length === 0 ? (
-                    <div className="no-data">
-                      <p>📭 No hay registros de acceso</p>
-                      <p>Los registros aparecerán aquí cuando se detecten tarjetas RFID</p>
-                    </div>
-                  ) : (
-                    <div className="table-container">
-                      <table id="recordsTable">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>UID</th>
-                            <th>Usuario</th>
-                            <th>Fecha y Hora</th>
-                            <th>Tiempo Transcurrido</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[...accessRecords]
-                            .slice()
-                            .reverse()
-                            .map((entry, index) => {
-                              const user = usersData.find((u) => u.uid === entry.uid);
-                              const userName = user
-                                ? `${user.nombre_completo} (${user.identificacion})`
-                                : 'Usuario no registrado';
-                              return (
-                                <tr key={entry.id}>
-                                  <td>{index + 1}</td>
-                                  <td>
-                                    <span className="uid-code">{entry.uid}</span>
-                                  </td>
-                                  <td>{userName}</td>
-                                  <td className="timestamp">{formatDate(entry.timestamp)}</td>
-                                  <td>{getTimeAgo(entry.timestamp)}</td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {activeTab === 'tiempos' && (
         <div className="tab-content active" id="tiempos">
           <div className="data-section">
-            <h2 className="section-title">⏱️ Control de Tiempos de Permanencia</h2>
+            <h2 className="section-title">⏱️ Control de Tiempos de Acceso</h2>
 
             <div className="controls">
               <div className="status-indicator">
@@ -774,10 +624,12 @@ const Indexx = () => {
             </div>
 
             <div className="table-container">
-              <div id="loadingTimes" className="loading">
-                <div className="spinner"></div>
-                <span>Cargando tiempos...</span>
-              </div>
+              {loading.tiempos && (
+                <div id="loadingTimes" className="loading">
+                  <div className="spinner"></div>
+                  <span>Cargando tiempos...</span>
+                </div>
+              )}
 
               {errorMessages.tiempos && <div className="error-message">⚠️ {errorMessages.tiempos}</div>}
 
@@ -799,30 +651,68 @@ const Indexx = () => {
                             <th>Hora Entrada</th>
                             <th>Hora Salida</th>
                             <th>Tiempo Total</th>
-                            <th>Estado</th>
                           </tr>
                         </thead>
                         <tbody>
                           {timeRecords
-                            .slice()
-                            .reverse()
-                            .map((record, index) => {
-                              const user = usersData.find((u) => u.uid === record.uid);
-                              const userName = user
-                                ? `${user.nombre_completo} (${user.identificacion})`
-                                : 'Usuario no registrado';
-                              return (
-                                <tr key={record.id}>
-                                  <td>{index + 1}</td>
-                                  <td>{userName}</td>
-                                  <td>{new Date(record.fecha).toLocaleDateString('es-ES')}</td>
-                                  <td>{record.hora_entrada || '-'}</td>
-                                  <td>{record.hora_salida || '-'}</td>
-                                  <td>{record.tiempo_total || '-'}</td>
-                                  <td>{record.estado || '-'}</td>
-                                </tr>
-                              );
-                            })}
+  .slice()
+  .reverse()
+  .map((record, index) => {
+    const user = usersData.find((u) => u.uid === record.uid);
+    const userName = user
+      ? `${user.nombre_completo} (${user.identificacion})`
+      : `Usuario no registrado (${record.uid})`;
+
+    // Función para formatear fecha
+    const formatDate = (isoString) => {
+      if (!isoString || isoString === '-') return '-';
+      try {
+        const date = new Date(isoString);
+        return date.toLocaleDateString('es-ES');
+      } catch {
+        return '-';
+      }
+    };
+
+    // Función para formatear hora
+    const formatTime = (isoString) => {
+      if (!isoString || isoString === '-') return '-';
+      try {
+        const timePart = isoString.split('T')[1] || '';
+        return timePart.substring(0, 5);
+      } catch {
+        return '-';
+      }
+    };
+
+    // MOSTRAR DURACIÓN CORRECTAMENTE
+    const mostrarDuracion = () => {
+      // Primero intentamos con 'duración' (con tilde)
+      if (record.duración !== undefined && record.duración !== null) {
+        return record.duración;
+      }
+      // Luego con 'duracion' (sin tilde)
+      else if (record.duracion !== undefined && record.duracion !== null) {
+        return record.duracion;
+      }
+      // Finalmente con cualquier otra variante
+      else if (record.duration !== undefined && record.duration !== null) {
+        return record.duration;
+      }
+      return '-';
+    };
+
+    return (
+      <tr key={record.id || index}>
+        <td>{index + 1}</td>
+        <td>{userName}</td>
+        <td>{formatDate(record.entrada)}</td>
+        <td>{formatTime(record.entrada)}</td>
+        <td>{record.salida === '-' ? '-' : formatTime(record.salida)}</td>
+        <td>{mostrarDuracion()}</td> {/* Llamamos a la función aquí */}
+      </tr>
+    );
+  })}
                         </tbody>
                       </table>
                     </div>
